@@ -99,6 +99,57 @@ class CalcularParticipacaoMeEppTest(unittest.TestCase):
         self.assertEqual(len(resultado), 2)
 
 
+class CalcularParticipacaoMeLocalTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.licitacoes = pd.DataFrame([
+            {"id": "L1", "municipio_comprador": "São Gonçalo do Amarante", "secretaria": "Saúde", "data": "2025-01-10"},
+            {"id": "L2", "municipio_comprador": "São Gonçalo do Amarante", "secretaria": "Educação", "data": "2025-02-10"},
+            {"id": "L3", "municipio_comprador": "São Gonçalo do Amarante", "secretaria": "Saúde", "data": "2026-01-10"},
+        ])
+
+    def test_conta_licitacao_uma_vez_e_exclui_epp_e_me_epp(self) -> None:
+        participantes = pd.DataFrame([
+            {"licitacao": "L1", "cnpj": "11.444.777/0001-61", "porte": "ME", "municipio_empresa": "SAO GONCALO DO AMARANTE"},
+            {"licitacao": "L1", "cnpj": "12.345.678/0001-00", "porte": "MICRO EMPRESA", "municipio_empresa": "São Gonçalo do Amarante"},
+            {"licitacao": "L2", "cnpj": "22.222.222/0001-22", "porte": "EPP", "municipio_empresa": "São Gonçalo do Amarante"},
+            {"licitacao": "L2", "cnpj": "33.333.333/0001-33", "porte": "ME/EPP", "municipio_empresa": "São Gonçalo do Amarante"},
+            {"licitacao": "L3", "cnpj": "44.444.444/0001-44", "porte": "ME", "municipio_empresa": "Fortaleza"},
+        ])
+
+        resultado = kpis.calcular_participacao_me_local(
+            self.licitacoes,
+            participantes,
+            coluna_licitacao="id",
+            coluna_licitacao_participante="licitacao",
+            coluna_porte="porte",
+            coluna_municipio_empresa="municipio_empresa",
+            coluna_municipio_comprador="municipio_comprador",
+            coluna_cnpj="cnpj",
+            coluna_secretaria="secretaria",
+            coluna_data="data",
+        )
+        resumo = resultado["resumo_geral"].iloc[0]
+        self.assertEqual(resumo["total_licitacoes"], 3)
+        self.assertEqual(resumo["licitacoes_com_me_local"], 1)
+        self.assertEqual(resumo["licitacoes_sem_me_local"], 2)
+        self.assertAlmostEqual(resumo["percentual_me_local"], 100 / 3)
+        self.assertEqual(resumo["licitacoes_com_me_externa"], 1)
+        self.assertEqual(len(resultado["por_secretaria"]), 2)
+        self.assertEqual(len(resultado["historico"]), 2)
+
+    def test_recusa_calcular_sem_proponentes(self) -> None:
+        with self.assertRaisesRegex(kpis.DadosInsuficientesKPI, "vencedores nao substituem"):
+            kpis.calcular_participacao_me_local(
+                self.licitacoes,
+                pd.DataFrame(),
+                coluna_licitacao="id",
+                coluna_licitacao_participante="licitacao",
+                coluna_porte="porte",
+                coluna_municipio_empresa="municipio_empresa",
+                coluna_municipio_comprador="municipio_comprador",
+            )
+
+
 class ParticipacaoMeEppPorMesEndToEndTest(unittest.TestCase):
     """Usa a ingestao + limpeza + merge reais do TCE, so a chamada HTTP e mockada."""
 
