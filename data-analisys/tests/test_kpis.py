@@ -46,53 +46,53 @@ class ExtrairAnoMesTest(unittest.TestCase):
         self.assertTrue(resultado.isna().tolist()[3:] == [True, True])
 
 
-class CalcularParticipacaoMeEppTest(unittest.TestCase):
+class CalcularParticipacaoMeTest(unittest.TestCase):
     def test_soma_por_grupo_e_calcula_percentual(self) -> None:
         df = pd.DataFrame(
             [
-                {"ano_mes": "2025-01", "valor": 50000.0, "fornecedor_elegivel_me_epp": True},
-                {"ano_mes": "2025-01", "valor": 20000.0, "fornecedor_elegivel_me_epp": False},
-                {"ano_mes": "2025-02", "valor": 10000.0, "fornecedor_elegivel_me_epp": True},
-                # fornecedor nao localizado (None) -> entra no total, nao entra no valor_me_epp
-                {"ano_mes": "2025-02", "valor": 5000.0, "fornecedor_elegivel_me_epp": None},
+                {"ano_mes": "2025-01", "valor": 50000.0, "fornecedor_elegivel_me": True},
+                {"ano_mes": "2025-01", "valor": 20000.0, "fornecedor_elegivel_me": False},
+                {"ano_mes": "2025-02", "valor": 10000.0, "fornecedor_elegivel_me": True},
+                # fornecedor nao localizado (None) -> entra no total, nao entra no valor_me
+                {"ano_mes": "2025-02", "valor": 5000.0, "fornecedor_elegivel_me": None},
             ]
         )
 
-        resultado = kpis.calcular_participacao_me_epp(
+        resultado = kpis.calcular_participacao_me(
             df, colunas_agrupamento=["ano_mes"], coluna_valor="valor"
         )
         por_mes = resultado.set_index("ano_mes")
 
         self.assertEqual(por_mes.loc["2025-01", "total_compras"], 70000.0)
-        self.assertEqual(por_mes.loc["2025-01", "valor_me_epp"], 50000.0)
-        self.assertAlmostEqual(por_mes.loc["2025-01", "percentual_me_epp"], 50000.0 / 70000.0)
+        self.assertEqual(por_mes.loc["2025-01", "valor_me"], 50000.0)
+        self.assertAlmostEqual(por_mes.loc["2025-01", "percentual_me"], 50000.0 / 70000.0)
 
         self.assertEqual(por_mes.loc["2025-02", "total_compras"], 15000.0)
-        self.assertEqual(por_mes.loc["2025-02", "valor_me_epp"], 10000.0)  # a linha None nao conta
-        self.assertAlmostEqual(por_mes.loc["2025-02", "percentual_me_epp"], 10000.0 / 15000.0)
+        self.assertEqual(por_mes.loc["2025-02", "valor_me"], 10000.0)  # a linha None nao conta
+        self.assertAlmostEqual(por_mes.loc["2025-02", "percentual_me"], 10000.0 / 15000.0)
 
     def test_grupo_com_total_zero_nao_gera_divisao_por_zero(self) -> None:
         df = pd.DataFrame(
             [
-                {"ano_mes": "2025-01", "valor": 0.0, "fornecedor_elegivel_me_epp": False},
+                {"ano_mes": "2025-01", "valor": 0.0, "fornecedor_elegivel_me": False},
             ]
         )
 
-        resultado = kpis.calcular_participacao_me_epp(
+        resultado = kpis.calcular_participacao_me(
             df, colunas_agrupamento=["ano_mes"], coluna_valor="valor"
         )
 
-        self.assertTrue(pd.isna(resultado.iloc[0]["percentual_me_epp"]))
+        self.assertTrue(pd.isna(resultado.iloc[0]["percentual_me"]))
 
     def test_aceita_multiplas_colunas_de_agrupamento(self) -> None:
         df = pd.DataFrame(
             [
-                {"ano_mes": "2025-01", "municipio": "Amontada", "valor": 100.0, "fornecedor_elegivel_me_epp": True},
-                {"ano_mes": "2025-01", "municipio": "Abaiara", "valor": 200.0, "fornecedor_elegivel_me_epp": False},
+                {"ano_mes": "2025-01", "municipio": "Amontada", "valor": 100.0, "fornecedor_elegivel_me": True},
+                {"ano_mes": "2025-01", "municipio": "Abaiara", "valor": 200.0, "fornecedor_elegivel_me": False},
             ]
         )
 
-        resultado = kpis.calcular_participacao_me_epp(
+        resultado = kpis.calcular_participacao_me(
             df, colunas_agrupamento=["ano_mes", "municipio"], coluna_valor="valor"
         )
 
@@ -107,7 +107,7 @@ class CalcularParticipacaoMeLocalTest(unittest.TestCase):
             {"id": "L3", "municipio_comprador": "São Gonçalo do Amarante", "secretaria": "Saúde", "data": "2026-01-10"},
         ])
 
-    def test_conta_licitacao_uma_vez_e_exclui_epp_e_me_epp(self) -> None:
+    def test_conta_licitacao_uma_vez_e_exclui_rotulos_nao_me(self) -> None:
         participantes = pd.DataFrame([
             {"licitacao": "L1", "cnpj": "11.444.777/0001-61", "porte": "ME", "municipio_empresa": "SAO GONCALO DO AMARANTE"},
             {"licitacao": "L1", "cnpj": "12.345.678/0001-00", "porte": "MICRO EMPRESA", "municipio_empresa": "São Gonçalo do Amarante"},
@@ -150,7 +150,7 @@ class CalcularParticipacaoMeLocalTest(unittest.TestCase):
             )
 
 
-class ParticipacaoMeEppPorMesEndToEndTest(unittest.TestCase):
+class ParticipacaoMePorMesEndToEndTest(unittest.TestCase):
     """Usa a ingestao + limpeza + merge reais do TCE, so a chamada HTTP e mockada."""
 
     def test_calcula_a_partir_da_base_tce_ja_enriquecida(self) -> None:
@@ -181,7 +181,7 @@ class ParticipacaoMeEppPorMesEndToEndTest(unittest.TestCase):
                 "codigo_municipio": "010",
                 "numero_contrato": "2025000456",
                 "numero_documento_negociante": "98.765.432/0001-11",
-                "nome_negociante": "Fornecedor Grande Porte SA",
+                "nome_negociante": "Fornecedor EPP SA",
             },
         ]
 
@@ -198,10 +198,10 @@ class ParticipacaoMeEppPorMesEndToEndTest(unittest.TestCase):
         with patch("app.pipeline.ingestion.fornecedores.buscar_opencnpj") as mock_opencnpj, patch(
             "app.pipeline.ingestion.fornecedores.buscar_brasilapi"
         ) as mock_brasilapi:
-            # ME (elegivel) e uma DEMAIS (nao elegivel), pra provar que o calculo distingue
+            # ME entra no KPI; EPP existe na fonte, mas nao entra neste projeto.
             mock_brasilapi.side_effect = [
                 {"cnpj": "11444777000161", "porte": "MICRO EMPRESA"},
-                {"cnpj": "98765432000111", "porte": "DEMAIS"},
+                {"cnpj": "98765432000111", "porte": "EMPRESA DE PEQUENO PORTE"},
             ]
             mock_opencnpj.return_value = {}
             brutos = fornecedores.coletar_fornecedores_em_lote(
@@ -211,18 +211,18 @@ class ParticipacaoMeEppPorMesEndToEndTest(unittest.TestCase):
 
         base_tce = merge.montar_base_tce(df_contratos, df_contratados, fornecedores_df=fornecedores_df)
 
-        resultado = kpis.calcular_participacao_me_epp_por_mes(
+        resultado = kpis.calcular_participacao_me_por_mes(
             base_tce, coluna_data="data_contrato", coluna_valor="valor_total_contrato"
         )
         por_mes = resultado.set_index("ano_mes")
 
         self.assertEqual(por_mes.loc["2025-01", "total_compras"], 50000.0)
-        self.assertEqual(por_mes.loc["2025-01", "valor_me_epp"], 50000.0)  # ME -> 100%
-        self.assertEqual(por_mes.loc["2025-01", "percentual_me_epp"], 1.0)
+        self.assertEqual(por_mes.loc["2025-01", "valor_me"], 50000.0)  # ME -> 100%
+        self.assertEqual(por_mes.loc["2025-01", "percentual_me"], 1.0)
 
         self.assertEqual(por_mes.loc["2025-02", "total_compras"], 20000.0)
-        self.assertEqual(por_mes.loc["2025-02", "valor_me_epp"], 0.0)  # DEMAIS -> 0%
-        self.assertEqual(por_mes.loc["2025-02", "percentual_me_epp"], 0.0)
+        self.assertEqual(por_mes.loc["2025-02", "valor_me"], 0.0)  # EPP -> 0%
+        self.assertEqual(por_mes.loc["2025-02", "percentual_me"], 0.0)
 
 
 if __name__ == "__main__":

@@ -449,9 +449,9 @@ class LimparFornecedoresTest(unittest.TestCase):
         self.assertEqual(df.iloc[0]["brasilapi_cep"], "62240000")
         self.assertEqual(df.iloc[0]["brasilapi_ddd_telefone_1"], "8834321234")
         self.assertEqual(df.iloc[0]["opencnpj_situacao_cadastral"], "ATIVA")
-        # porte padronizado para o vocabulario fixo usado na analise de compras ME/EPP
+        # porte padronizado para o vocabulario fixo usado na analise de compras ME
         self.assertEqual(df.iloc[0]["porte_padronizado"], "ME")
-        self.assertTrue(df.iloc[0]["elegivel_me_epp"])
+        self.assertTrue(df.iloc[0]["elegivel_me"])
         # optante pelo Simples Nacional (regime tributario) — criterio distinto do porte
         self.assertTrue(df.iloc[0]["optante_simples_nacional"])
         self.assertEqual(df.iloc[0]["data_opcao_simples_nacional"], "2018-01-01")
@@ -472,7 +472,67 @@ class LimparFornecedoresTest(unittest.TestCase):
         ])
 
         self.assertEqual(df.iloc[0]["porte_padronizado"], "ME")
-        self.assertTrue(df.iloc[0]["elegivel_me_epp"])
+        self.assertTrue(df.iloc[0]["elegivel_me"])
+
+    def test_epp_nao_e_elegivel_no_kpi_de_me(self) -> None:
+        df = cleaning.limpar_fornecedores([
+            {
+                "cnpj": "98765432000111",
+                "brasilapi": {"porte": "EMPRESA DE PEQUENO PORTE"},
+                "opencnpj": {},
+            }
+        ])
+
+        self.assertEqual(df.iloc[0]["porte_padronizado"], "EPP")
+        self.assertFalse(df.iloc[0]["elegivel_me"])
+
+    def test_opcao_simples_e_mei_aceitam_ausente_e_texto(self) -> None:
+        df = cleaning.limpar_fornecedores(
+            [
+                {
+                    "cnpj": "11444777000161",
+                    "brasilapi": {
+                        "porte": "MICRO EMPRESA",
+                        "opcao_pelo_simples": None,
+                        "opcao_pelo_mei": "não",
+                    },
+                    "opencnpj": {},
+                    "porte": "MICRO EMPRESA",
+                },
+                {
+                    "cnpj": "98765432000111",
+                    "brasilapi": {
+                        "porte": "DEMAIS",
+                        "opcao_pelo_simples": "sim",
+                        "opcao_pelo_mei": None,
+                    },
+                    "opencnpj": {},
+                    "porte": "DEMAIS",
+                },
+            ]
+        )
+
+        por_cnpj = df.set_index("cnpj")
+        self.assertTrue(pd.isna(por_cnpj.loc["11444777000161", "optante_simples_nacional"]))
+        self.assertFalse(por_cnpj.loc["11444777000161", "optante_mei"])
+        self.assertTrue(por_cnpj.loc["98765432000111", "optante_simples_nacional"])
+        self.assertTrue(pd.isna(por_cnpj.loc["98765432000111", "optante_mei"]))
+
+    def test_sem_porte_mantem_elegibilidade_nula_para_kpi(self) -> None:
+        df = cleaning.limpar_fornecedores(
+            [
+                {
+                    "cnpj": "11444777000161",
+                    "brasilapi": {"cnpj": "11444777000161"},
+                    "opencnpj": {},
+                }
+            ]
+        )
+
+        self.assertIn("porte_padronizado", df.columns)
+        self.assertIn("elegivel_me", df.columns)
+        self.assertTrue(pd.isna(df.iloc[0]["porte_padronizado"]))
+        self.assertTrue(pd.isna(df.iloc[0]["elegivel_me"]))
 
 
 class PadronizarNomesColunasTest(unittest.TestCase):

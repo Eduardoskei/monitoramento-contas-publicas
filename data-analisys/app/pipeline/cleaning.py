@@ -662,9 +662,9 @@ _MAPA_PORTE_EMPRESARIAL = {
 def normalizar_porte_empresarial(valor: Any) -> str | None:
     """
     Mapeia as variacoes de 'porte' usadas pela BrasilAPI/OpenCNPJ/Simples Nacional
-    para um vocabulario fixo (MEI/ME/EPP/DEMAIS). E o dado central para qualquer
-    analise de compras ME/EPP (LC 123/2006) — sem essa padronizacao, o mesmo porte
-    aparece grafado de formas diferentes conforme a fonte e nao da pra agregar.
+    para um vocabulario fixo (MEI/ME/EPP/DEMAIS). A analise do projeto usa ME
+    estrita, mas manter a categoria original padronizada permite distinguir EPP,
+    MEI e demais sem misturar tudo em um booleano.
     Retorna None (nao mapeado) em vez de chutar uma categoria, para nao mascarar
     um valor novo/desconhecido vindo da API.
     """
@@ -677,6 +677,29 @@ def normalizar_porte_empresarial(valor: Any) -> str | None:
     return _MAPA_PORTE_EMPRESARIAL.get(chave)
 
 
+def normalizar_booleano(valor: Any) -> Any:
+    """Converte booleanos vindos como bool/int/string e preserva ausentes."""
+    if valor is None:
+        return pd.NA
+    try:
+        if pd.isna(valor):
+            return pd.NA
+    except (TypeError, ValueError):
+        pass
+    if isinstance(valor, bool):
+        return valor
+    if isinstance(valor, (int, float)) and valor in (0, 1):
+        return bool(valor)
+
+    chave = remover_acentos(str(valor)).strip().upper()
+    chave = re.sub(r"[\s_-]+", " ", chave)
+    if chave in {"TRUE", "T", "SIM", "S", "YES", "Y", "1"}:
+        return True
+    if chave in {"FALSE", "F", "NAO", "N", "NO", "0"}:
+        return False
+    return pd.NA
+
+
 def limpar_fornecedores(registros: list[dict[str, Any]]) -> pd.DataFrame:
     """
     Limpa o retorno de `fornecedores.coletar_fornecedor` (combina BrasilAPI +
@@ -686,14 +709,13 @@ def limpar_fornecedores(registros: list[dict[str, Any]]) -> pd.DataFrame:
 
     Alem do pipeline generico (que ja normaliza/valida o cnpj via
     `padronizar_documentos`), adiciona:
-      - 'porte_padronizado'/'elegivel_me_epp' a partir do campo 'porte' (classificacao
-        cadastral por faturamento, LC 123/2006);
+      - 'porte_padronizado'/'elegivel_me' a partir do campo 'porte' (ME estrita);
       - 'optante_simples_nacional'/'optante_mei' (+ datas de opcao/exclusao) a partir
         dos campos de opcao pelo Simples Nacional/MEI que a BrasilAPI ja retorna na
         MESMA consulta de CNPJ (nao e uma integracao nova).
 
-    Sao dois criterios distintos de "ser MPE" — porte cadastral e regime tributario
-    optado nao sao sinonimos (uma empresa pode ser ME/EPP por faturamento e nao ter
+    Sao dois criterios distintos de "ser ME" — porte cadastral e regime tributario
+    optado nao sao sinonimos (uma empresa pode ser ME por faturamento e nao ter
     optado pelo Simples) — por isso ficam como colunas separadas em vez de um
     substituir o outro; quem consumir decide qual usar para cada analise.
     """
@@ -730,16 +752,22 @@ def limpar_fornecedores(registros: list[dict[str, Any]]) -> pd.DataFrame:
         for coluna in colunas_porte[1:]:
             porte = porte.combine_first(df[coluna])
         df["porte_padronizado"] = porte.map(normalizar_porte_empresarial)
-        df["elegivel_me_epp"] = df["porte_padronizado"].isin(["MEI", "ME", "EPP"])
+        elegivel = df["porte_padronizado"].eq("ME").astype("boolean")
+        df["elegivel_me"] = elegivel.mask(df["porte_padronizado"].isna(), pd.NA)
+    else:
+        df["porte_padronizado"] = pd.Series([pd.NA] * len(df), dtype="string")
+        df["elegivel_me"] = pd.Series([pd.NA] * len(df), dtype="boolean")
 
     if "brasilapi_opcao_pelo_simples" in df.columns:
-        df["optante_simples_nacional"] = df["brasilapi_opcao_pelo_simples"].astype("boolean")
+        df["optante_simples_nacional"] = (
+            df["brasilapi_opcao_pelo_simples"].map(normalizar_booleano).astype("boolean")
+        )
     if "brasilapi_data_opcao_pelo_simples" in df.columns:
         df["data_opcao_simples_nacional"] = df["brasilapi_data_opcao_pelo_simples"]
     if "brasilapi_data_exclusao_do_simples" in df.columns:
         df["data_exclusao_simples_nacional"] = df["brasilapi_data_exclusao_do_simples"]
     if "brasilapi_opcao_pelo_mei" in df.columns:
-        df["optante_mei"] = df["brasilapi_opcao_pelo_mei"].astype("boolean")
+        df["optante_mei"] = df["brasilapi_opcao_pelo_mei"].map(normalizar_booleano).astype("boolean")
 
     return df
 

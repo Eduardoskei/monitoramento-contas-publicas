@@ -8,7 +8,10 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from fastapi import HTTPException
+
 from app import main
+from app.pipeline.ingestion import pncp
 
 
 class MainTest(unittest.TestCase):
@@ -25,6 +28,92 @@ class MainTest(unittest.TestCase):
                 close_pool.assert_called_once_with()
 
         asyncio.run(executar_lifespan())
+
+    def test_lifespan_continua_sem_database_url(self) -> None:
+        async def executar_lifespan() -> None:
+            with (
+                patch("app.main.database.init_db", side_effect=RuntimeError("DATABASE_URL nao esta definida")),
+                patch("app.main.database.close_pool") as close_pool,
+            ):
+                async with main.lifespan(main.app):
+                    close_pool.assert_not_called()
+
+                close_pool.assert_called_once_with()
+
+        asyncio.run(executar_lifespan())
+
+    def test_rotas_do_pipeline_estao_registradas(self) -> None:
+        rotas = {route.path for route in main.app.routes}
+
+        self.assertIn("/pipeline/pncp/contratacoes", rotas)
+        self.assertIn("/pipeline/tce/contratos", rotas)
+        self.assertIn("/pipeline/tce/kpis/me-por-mes", rotas)
+
+    @patch("app.main.database.close_pool")
+    @patch("app.main.database.init_db")
+    @patch("app.pipeline.analisys.fornecedores.coletar_fornecedores_em_lote")
+    @patch("app.pipeline.analisys.tce.buscar_contratados")
+    @patch("app.pipeline.analisys.tce.buscar_contratos")
+    def test_endpoint_tce_contratos_retorna_fluxo_serializado(
+        self,
+        buscar_contratos,
+        buscar_contratados,
+        coletar_fornecedores,
+        _init_db,
+        _close_pool,
+    ) -> None:
+        buscar_contratos.return_value = [
+            {
+                "codigo_municipio": "010",
+                "numero_contrato": "2025000123",
+                "data_contrato": "2025-01-15",
+                "valor_total_contrato": "1.000,00",
+            }
+        ]
+        buscar_contratados.return_value = [
+            {
+                "codigo_municipio": "010",
+                "numero_contrato": "2025000123",
+                "numero_documento_negociante": "11.444.777/0001-61",
+                "nome_negociante": "Fornecedor Teste",
+            }
+        ]
+        coletar_fornecedores.return_value = [
+            {
+                "cnpj": "11444777000161",
+                "brasilapi": {"porte": "MICRO EMPRESA"},
+                "opencnpj": {},
+                "porte": "MICRO EMPRESA",
+            }
+        ]
+
+        payload = main.tce_contratos(
+            data_inicial="20250101",
+            data_final="20250131",
+            codigo_municipio="010",
+            enriquecer_fornecedores=True,
+        )
+
+        self.assertEqual(payload["totais"], {"contratos": 1})
+        self.assertEqual(payload["dados"][0]["nome_negociante"], "Fornecedor Teste")
+        self.assertEqual(payload["dados"][0]["fornecedor_porte_padronizado"], "ME")
+
+    @patch("app.main.database.close_pool")
+    @patch("app.main.database.init_db")
+    @patch("app.main.analisys.consultar_pncp_contratacoes")
+    def test_endpoint_pncp_mapeia_fonte_indisponivel_para_503(
+        self,
+        consultar_pncp,
+        _init_db,
+        _close_pool,
+    ) -> None:
+        consultar_pncp.side_effect = pncp.PncpIndisponivelError("PNCP indisponivel")
+
+        with self.assertRaises(HTTPException) as contexto:
+            main.pncp_contratacoes(data_inicial="20250101", data_final="20250131")
+
+        self.assertEqual(contexto.exception.status_code, 503)
+        self.assertEqual(contexto.exception.detail, "PNCP indisponivel")
 
 
 if __name__ == "__main__":

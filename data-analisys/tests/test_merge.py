@@ -146,7 +146,7 @@ class EnriquecerComFornecedorTest(unittest.TestCase):
 
         encontrado = resultado[resultado["contrato_id"] == 1].iloc[0]
         self.assertEqual(encontrado["fornecedor_porte_padronizado"], "ME")
-        self.assertTrue(encontrado["fornecedor_elegivel_me_epp"])
+        self.assertTrue(encontrado["fornecedor_elegivel_me"])
 
         nao_encontrado = resultado[resultado["contrato_id"] == 2].iloc[0]
         self.assertTrue(pd.isna(nao_encontrado["fornecedor_porte_padronizado"]))

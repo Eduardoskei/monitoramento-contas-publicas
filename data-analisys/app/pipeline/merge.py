@@ -12,7 +12,7 @@ Cada fonte e limpa de forma independente em cleaning.py (uma funcao "limpar_*"
 por fonte, que nao sabe nada das outras). Este modulo e o unico lugar do
 projeto que cruza dados de fontes diferentes: junta as tabelas-filha do PNCP
 de volta a tabela-pai, enriquece contratos/contratados com os dados do
-fornecedor (porte, elegibilidade ME/EPP) via CNPJ, e valida/enriquece o
+fornecedor (porte, elegibilidade ME estrita) via CNPJ, e valida/enriquece o
 municipio do orgao contra a base oficial do IBGE.
 
 Todas as funcoes aqui recebem DataFrames JA LIMPOS (saida de cleaning.py) —
@@ -62,7 +62,7 @@ _COLUNAS_FORNECEDOR_EXPORTADAS = (
     "cnpj",
     "brasilapi_razao_social",
     "porte_padronizado",
-    "elegivel_me_epp",
+    "elegivel_me",
     "cnpj_valido",
     "optante_simples_nacional",
     "optante_mei",
@@ -102,7 +102,7 @@ def enriquecer_com_fornecedor(
     """
     Left join dos dados ja limpos por `cleaning.limpar_fornecedores` em
     qualquer tabela que tenha uma coluna de CNPJ do fornecedor/contratado.
-    Traz porte/elegibilidade ME-EPP e razao social com o prefixo
+    Traz porte/elegibilidade ME e razao social com o prefixo
     'fornecedor_', para nao colidir com colunas da tabela de origem.
 
     Nao remove nem filtra nada: uma linha cujo CNPJ nao foi encontrado na
@@ -208,7 +208,7 @@ def montar_base_pncp(
         (via 'unidade_orgao_codigo_ibge'/'unidade_orgao_uf_sigla'), quando
         `municipios_ibge` for informado;
       - 'contratos' (se existir): enriquece com os dados do fornecedor
-        vencedor (porte, elegibilidade ME/EPP, razao social) via
+        vencedor (porte, elegibilidade ME, razao social) via
         'ni_fornecedor', quando `fornecedores_df` for informado.
 
     Tabelas ausentes no dict de entrada (ex.: 'itens'/'contratos', quando a
