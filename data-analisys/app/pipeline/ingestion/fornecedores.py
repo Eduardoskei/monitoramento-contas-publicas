@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Iterable
 import time
 import unicodedata
 
@@ -213,3 +213,32 @@ def validar_fornecedor_me(cnpj: str) -> dict[str, Any] | None:
         _salvar_fornecedor_me_no_banco(fornecedor_me)
 
     return fornecedor_me
+def coletar_fornecedores_em_lote(
+    cnpjs: Iterable[str],
+    *,
+    throttle_segundos: float = 0.3,
+) -> list[dict[str, Any]]:
+    """
+    Chama `coletar_fornecedor` uma vez para cada CNPJ distinto de `cnpjs`,
+    com uma pausa entre chamadas (mesmo padrao de espacamento entre paginas
+    ja usado em pncp.py/tce.py) para nao estourar limite de requisicoes das
+    APIs publicas. Duplicatas na lista de entrada sao ignoradas — cada CNPJ
+    e consultado uma unica vez, mesmo que apareca em varios contratos.
+
+    Use `app.pipeline.merge.extrair_cnpjs_distintos` para montar `cnpjs` a
+    partir das tabelas ja limpas de contratos/contratados.
+    """
+    vistos: set[str] = set()
+    resultados: list[dict[str, Any]] = []
+
+    for cnpj in cnpjs:
+        cnpj_limpo = somente_digitos(cnpj)
+        if not cnpj_limpo or cnpj_limpo in vistos:
+            continue
+        vistos.add(cnpj_limpo)
+
+        resultados.append(coletar_fornecedor(cnpj_limpo))
+        if throttle_segundos:
+            time.sleep(throttle_segundos)
+
+    return resultados
