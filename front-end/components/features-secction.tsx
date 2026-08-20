@@ -1,5 +1,5 @@
 import { BarChart3, CircleCheck, Bell } from 'lucide-react'
-import { Card, CardIcon, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardTitle, CardDescription } from '@/components/ui/card'
 
 const FEATURES = [
 	{
@@ -30,9 +30,9 @@ export function FeaturesSection() {
 				<div className="mt-14 grid gap-5 md:grid-cols-3">
 					{FEATURES.map((feature) => (
 						<Card key={feature.title} className="bg-surface">
-							<CardIcon>
+							<div className="mb-4 flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
 								<feature.icon aria-hidden />
-							</CardIcon>
+							</div>
 							<CardTitle>{feature.title}</CardTitle>
 							<CardDescription className="text-muted-foreground">{feature.description}</CardDescription>
 						</Card>
