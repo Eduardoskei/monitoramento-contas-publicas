@@ -282,6 +282,29 @@ class MontarBaseTceTest(unittest.TestCase):
         self.assertNotIn("fornecedor_porte_padronizado", resultado.columns)
 
 
+class JuntarContratosEContratadosTest(unittest.TestCase):
+    def test_nao_junta_por_chave_parcial_quando_falta_codigo_municipio(self) -> None:
+        # Achado de revisao de codigo: com 'codigo_municipio' ausente em
+        # 'contratados', o join usava so 'numero_contrato' e colava o
+        # contratado errado num contrato de outro municipio.
+        df_contratos = pd.DataFrame(
+            [
+                {"numero_contrato": "100", "codigo_municipio": "010", "valor_total_contrato": 5000.0},
+                {"numero_contrato": "100", "codigo_municipio": "020", "valor_total_contrato": 9000.0},
+            ]
+        )
+        df_contratados = pd.DataFrame(
+            [
+                {"numero_contrato": "100", "nome_negociante": "Empresa do municipio 010"},
+            ]
+        )
+
+        resultado = merge.juntar_contratos_e_contratados(df_contratos, df_contratados)
+
+        self.assertNotIn("nome_negociante", resultado.columns)
+        self.assertEqual(len(resultado), 2)
+
+
 class UnirPncpETceTest(unittest.TestCase):
     def test_uniao_preserva_todas_as_colunas_dos_dois_lados(self) -> None:
         df_pncp = _tabelas_pncp_com_itens_e_contrato()["contratacoes"]
