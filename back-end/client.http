@@ -1,0 +1,55 @@
+@baseUrl = http://localhost:3333
+
+### Consultar licitações municipais
+POST {{baseUrl}}/api/v1/analises/licitacoes-municipais
+Content-Type: application/json
+
+{
+  "codigoMunicipioIbge": "2300754",
+  "periodo": { "ano": 2025 },
+  "pagina": 1,
+  "limite": 20
+}
+
+### Calcular participação de ME local
+POST {{baseUrl}}/api/v1/analises/participacao-me-local
+Content-Type: application/json
+
+{
+  "codigoMunicipioIbge": "2300754",
+  "periodo": { "ano": 2025 }
+}
+
+### Consultar licitações de ME
+POST {{baseUrl}}/api/v1/analises/licitacoes-me
+Content-Type: application/json
+
+{
+  "codigoMunicipioIbge": "2300754",
+  "periodo": { "ano": 2025 },
+  "apenasEmpresasLocais": true,
+  "pagina": 1,
+  "limite": 20
+}
+
+### Consultar licitações por empresa
+POST {{baseUrl}}/api/v1/analises/licitacoes-por-empresa
+Content-Type: application/json
+
+{
+  "cnpj": "12345678000190",
+  "periodo": { "ano": 2025 },
+  "pagina": 1,
+  "limite": 20
+}
+
+### Consultar contratos da licitação
+POST {{baseUrl}}/api/v1/analises/contratos-da-licitacao
+Content-Type: application/json
+
+{
+  "identificadorLicitacao": "LIC-2025-001",
+  "identificadorItem": "ITEM-01",
+  "pagina": 1,
+  "limite": 20
+}
