@@ -7,8 +7,8 @@ from dotenv import load_dotenv
 
 try:
     from psycopg2 import pool as pg_pool
-except ImportError as error:  # pragma: no cover - exercised only without optional dependency.
-    pg_pool = None  # type: ignore[assignment]
+except ImportError as error:
+    pg_pool = None
     _PSYCOPG2_IMPORT_ERROR = error
 else:
     _PSYCOPG2_IMPORT_ERROR = None
@@ -113,6 +113,18 @@ def _row_to_municipio(row: tuple[Any, Any, Any] | None) -> dict[str, Any] | None
     }
 
 
+def _row_to_fornecedor_me(row: tuple[Any, Any, Any] | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+
+    cnpj, razao_social, porte = row
+    return {
+        "cnpj": cnpj,
+        "razao_social": razao_social,
+        "porte": porte,
+    }
+
+
 def get_conn() -> Any:
     global db_pool
 
@@ -186,6 +198,15 @@ def init_db() -> None:
                 """
                 CREATE INDEX IF NOT EXISTS idx_ibge_municipios_uf_nome
                 ON ibge_municipios (uf, nome);
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS fornecedores_me (
+                    cnpj TEXT PRIMARY KEY,
+                    razao_social TEXT,
+                    porte TEXT NOT NULL CHECK (porte = 'ME')
+                );
                 """
             )
         _schema_initialized = True
@@ -317,5 +338,46 @@ def localizar_municipio_por_nome_ibge(nome_municipio: str, uf: str) -> dict[str,
                 (nome_municipio, uf.upper()),
             )
             return _row_to_municipio(cur.fetchone())
+    finally:
+        put_conn(conn)
+
+
+def salvar_fornecedor_me(cnpj: str, razao_social: str | None, porte: str = "ME") -> None:
+    if porte != "ME":
+        raise ValueError("Apenas fornecedores ME devem ser salvos.")
+
+    init_db()
+    conn = get_conn()
+    try:
+        with conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO fornecedores_me (cnpj, razao_social, porte)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (cnpj)
+                DO UPDATE SET
+                    razao_social = EXCLUDED.razao_social,
+                    porte = EXCLUDED.porte;
+                """,
+                (cnpj, razao_social, porte),
+            )
+    finally:
+        put_conn(conn)
+
+
+def localizar_fornecedor_me(cnpj: str) -> dict[str, Any] | None:
+    init_db()
+    conn = get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT cnpj, razao_social, porte
+                FROM fornecedores_me
+                WHERE cnpj = %s
+                """,
+                (cnpj,),
+            )
+            return _row_to_fornecedor_me(cur.fetchone())
     finally:
         put_conn(conn)
