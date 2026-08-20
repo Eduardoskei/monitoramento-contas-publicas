@@ -9,7 +9,7 @@ const NAV_LINKS = [
 
 export function SiteHeader() {
 	return (
-		<header data-slot="site-header" className="sticky top-0 z-50 border-b border-border-light bg-cream/10 backdrop-blur">
+		<header data-slot="site-header" className="sticky top-0 z-50 bg-cream/10 backdrop-blur">
 			<div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
 				<Link href="/" className="text-lg font-bold text-primary">
 					MonitoraME
@@ -26,10 +26,18 @@ export function SiteHeader() {
 						</a>
 					))}
 				</nav>
-
-				<Button variant="primary" size="sm" className="rounded-md">
-					Login
-				</Button>
+				<div className="grid grid-cols-2 gap-4">
+					<Link href={'/register'}>
+						<Button variant="outline" size="sm" className="rounded-md">
+							Cadastro
+						</Button>
+					</Link>
+					<Link href={'/login'}>
+						<Button variant="primary" size="sm" className="rounded-md">
+							Login
+						</Button>
+					</Link>
+				</div>
 			</div>
 		</header>
 	)

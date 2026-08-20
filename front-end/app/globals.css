@@ -1,35 +1,45 @@
 @import 'tailwindcss';
 
 @theme {
-	--color-primary: #7f9d3a;
-	--color-primary-hover: #6f8a2f;
-	--color-primary-foreground: #0d1206;
-	--color-accent: #c7dd6e;
+	/* Fonts */
+	--font-display: 'Plus Jakarta Sans', ui-rounded, sans-serif;
+	--font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+	--font-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
 
-	--color-background: #0b0d08;
-	--color-background-raised: #14170e;
-	--color-surface: #16190f;
-	--color-surface-raised: #1d2113;
-	--color-foreground: #f6f7f0;
-	--color-foreground-subtle: #cfd4c2;
-	--color-muted-foreground: #8b9078;
+	/* Backgrounds */
+	--color-background: #f6f7f0;
+	--color-background-alt: #eff1e6;
+	--color-surface: #ffffff;
+	--color-surface-raised: #ffffff;
 
-	--color-cream: #f5f4ee;
-	--color-cream-raised: #ebe9df;
-	--color-ink: #14170e;
-	--color-ink-subtle: #565b46;
+	/* Brand / actions */
+	--color-primary: #7f9f3f;
+	--color-primary-hover: #708f34;
+	--color-primary-foreground: #22280f;
+	--color-primary-soft: #eaf0da;
 
-	--color-border: #2a2e1d;
-	--color-border-light: #dedcd0;
-	--color-ring: #7f9d3a;
+	--color-secondary: #ffffff;
+	--color-secondary-foreground: #262b1c;
 
-	--font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
-	--font-body: 'Inter', system-ui, sans-serif;
-	--font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+	--color-muted: #eceee2;
+	--color-muted-foreground: #6b7159;
+
+	--color-destructive: #dc2626;
+	--color-destructive-foreground: #ffffff;
+	--color-destructive-soft: #fbe4e2;
+
+	/* Text */
+	--color-foreground: #24281a;
+	--color-foreground-subtle: #565c46;
+
+	/* Borders / focus */
+	--color-border: #dde0cd;
+	--color-input: #d7dbc6;
+	--color-ring: #7f9f3f;
 }
 
 body {
-	font-family: var(--font-body);
-	background-color: var(--color-cream);
-	color: var(--color-ink);
+	background-color: var(--color-background);
+	color: var(--color-foreground);
+	font-family: var(--font-sans);
 }
