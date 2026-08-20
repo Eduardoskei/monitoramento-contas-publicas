@@ -38,6 +38,33 @@ class FornecedoresIngestionTest(unittest.TestCase):
         self.assertEqual(dados["brasilapi"], {"porte": "MICRO EMPRESA"})
         self.assertEqual(dados["opencnpj"], {"porte": "ME"})
 
+    @patch("app.pipeline.ingestion.fornecedores.time.sleep")
+    @patch("app.pipeline.ingestion.fornecedores.coletar_fornecedor")
+    def test_coletar_fornecedores_em_lote_ignora_duplicatas_e_pausa_entre_chamadas(
+        self, mock_coletar, mock_sleep
+    ) -> None:
+        mock_coletar.side_effect = lambda cnpj: {"cnpj": cnpj}
+
+        resultados = fornecedores.coletar_fornecedores_em_lote(
+            # os 2 primeiros sao o mesmo CNPJ em formatos diferentes -> so 1 chamada
+            ["11444777000161", "11.444.777/0001-61", "98765432000199"],
+            throttle_segundos=0.1,
+        )
+
+        self.assertEqual(mock_coletar.call_count, 2)
+        self.assertEqual({r["cnpj"] for r in resultados}, {"11444777000161", "98765432000199"})
+        self.assertEqual(mock_sleep.call_count, 2)
+        mock_sleep.assert_called_with(0.1)
+
+    @patch("app.pipeline.ingestion.fornecedores.time.sleep")
+    @patch("app.pipeline.ingestion.fornecedores.coletar_fornecedor")
+    def test_coletar_fornecedores_em_lote_sem_throttle_nao_dorme(self, mock_coletar, mock_sleep) -> None:
+        mock_coletar.side_effect = lambda cnpj: {"cnpj": cnpj}
+
+        fornecedores.coletar_fornecedores_em_lote(["11444777000161"], throttle_segundos=0)
+
+        mock_sleep.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
