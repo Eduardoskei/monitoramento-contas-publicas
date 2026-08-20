@@ -455,7 +455,7 @@ def validar_cnpj(cnpj: str | None) -> bool:
     """Confere os 2 digitos verificadores. Um CNPJ com 14 digitos mas DV invalido
     NAO e descartado pelo pipeline — fica sinalizado (coluna '<nome>_valido') para
     auditoria, em vez de sumir silenciosamente do dado."""
-    if not cnpj or len(cnpj) != 14 or len(set(cnpj)) == 1:
+    if not isinstance(cnpj, str) or len(cnpj) != 14 or len(set(cnpj)) == 1:
         return False
     dv1 = _digito_verificador(cnpj[:12], [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
     dv2 = _digito_verificador(cnpj[:12] + str(dv1), [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
@@ -464,7 +464,7 @@ def validar_cnpj(cnpj: str | None) -> bool:
 
 def validar_cpf(cpf: str | None) -> bool:
     """Confere os 2 digitos verificadores do CPF (mesma logica de validar_cnpj)."""
-    if not cpf or len(cpf) != 11 or len(set(cpf)) == 1:
+    if not isinstance(cpf, str) or len(cpf) != 11 or len(set(cpf)) == 1:
         return False
     dv1 = _digito_verificador(cpf[:9], [10, 9, 8, 7, 6, 5, 4, 3, 2])
     dv2 = _digito_verificador(cpf[:9] + str(dv1), [11, 10, 9, 8, 7, 6, 5, 4, 3, 2])
@@ -487,11 +487,13 @@ def padronizar_documentos(df: pd.DataFrame) -> pd.DataFrame:
         if coluna.endswith("_valido"):
             continue
         if _PADRAO_COLUNA_CNPJ.search(coluna):
-            normalizados = df[coluna].map(normalizar_cnpj)
+            normalizados = df[coluna].map(normalizar_cnpj).astype(object)
+            normalizados = normalizados.where(pd.notna(normalizados), None)
             df[f"{coluna}_valido"] = normalizados.map(lambda v: validar_cnpj(v) if v else False)
             df[coluna] = normalizados
         elif _PADRAO_COLUNA_CPF.search(coluna):
-            normalizados = df[coluna].map(normalizar_cpf)
+            normalizados = df[coluna].map(normalizar_cpf).astype(object)
+            normalizados = normalizados.where(pd.notna(normalizados), None)
             df[f"{coluna}_valido"] = normalizados.map(lambda v: validar_cpf(v) if v else False)
             df[coluna] = normalizados
     return df
@@ -704,12 +706,30 @@ def limpar_fornecedores(registros: list[dict[str, Any]]) -> pd.DataFrame:
     if df.empty:
         return df
 
-    coluna_porte = next(
-        (c for c in ("brasilapi_porte", "opencnpj_porte") if c in df.columns),
-        None,
-    )
-    if coluna_porte:
-        df["porte_padronizado"] = df[coluna_porte].map(normalizar_porte_empresarial)
+    colunas_porte = [
+        c
+        for c in (
+            "porte",
+            "brasilapi_porte",
+            "brasilapi_descricao_porte",
+            "opencnpj_porte",
+            "opencnpj_descricao_porte",
+            "opencnpj_porte_descricao",
+            "opencnpj_empresa_porte",
+            "opencnpj_empresa_porte_descricao",
+            "opencnpj_estabelecimento_porte",
+            "opencnpj_estabelecimento_porte_descricao",
+        )
+        if c in df.columns
+    ]
+    if colunas_porte:
+        # Fallback por LINHA: a existencia da coluna da BrasilAPI nao pode
+        # esconder o porte trazido pela OpenCNPJ quando a primeira fonte
+        # respondeu sem esse campo para um CNPJ especifico.
+        porte = df[colunas_porte[0]]
+        for coluna in colunas_porte[1:]:
+            porte = porte.combine_first(df[coluna])
+        df["porte_padronizado"] = porte.map(normalizar_porte_empresarial)
         df["elegivel_me_epp"] = df["porte_padronizado"].isin(["MEI", "ME", "EPP"])
 
     if "brasilapi_opcao_pelo_simples" in df.columns:

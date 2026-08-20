@@ -462,6 +462,18 @@ class LimparFornecedoresTest(unittest.TestCase):
             [{"nome_socio": "Fulano de Tal", "qualificacao_socio": "Socio-Administrador"}],
         )
 
+    def test_porte_da_opencnpj_e_fallback_quando_brasilapi_nao_informa(self) -> None:
+        df = cleaning.limpar_fornecedores([
+            {
+                "cnpj": "11444777000161",
+                "brasilapi": {"razao_social": "Empresa real"},
+                "opencnpj": {"porte": {"descricao": "MICRO EMPRESA"}},
+            }
+        ])
+
+        self.assertEqual(df.iloc[0]["porte_padronizado"], "ME")
+        self.assertTrue(df.iloc[0]["elegivel_me_epp"])
+
 
 class PadronizarNomesColunasTest(unittest.TestCase):
     def test_sufixo_gerado_nao_colide_com_coluna_original(self) -> None:

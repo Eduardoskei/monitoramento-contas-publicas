@@ -12,6 +12,10 @@ TAMANHO_PAGINA_CONTRATACOES = 50
 TAMANHO_PAGINA_DETALHES = 500
 
 
+class PncpIndisponivelError(RuntimeError):
+    """A consulta ao PNCP falhou; nao equivale a uma consulta sem resultados."""
+
+
 @dataclass(frozen=True)
 class IdentificadorCompra:
     cnpj_orgao: str
@@ -51,6 +55,7 @@ def _get_json(
     url = f"{base_url.rstrip('/')}/{path.lstrip('/')}"
     espera = 1.0
 
+    ultimo_erro: Exception | None = None
     for tentativa in range(max_retries + 1):
         try:
             response = requests.get(url, params=_limpar_params(params or {}), timeout=(10, 40))
@@ -68,14 +73,17 @@ def _get_json(
 
             response.raise_for_status()
             return response.json()
-        except (requests.RequestException, ValueError):
+        except (requests.RequestException, ValueError) as error:
+            ultimo_erro = error
             if tentativa == max_retries:
-                return []
+                raise PncpIndisponivelError(
+                    f"Falha ao consultar o PNCP apos {max_retries + 1} tentativa(s): {url}"
+                ) from ultimo_erro
 
             time.sleep(espera)
             espera *= 2
 
-    return []
+    raise PncpIndisponivelError(f"Falha inesperada ao consultar o PNCP: {url}")
 
 
 def _get_nested(registro: dict[str, Any], caminho: tuple[str, ...]) -> Any:

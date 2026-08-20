@@ -13,6 +13,10 @@ BRASILAPI_URL = BRASILAPI_BASE_URL
 OPENCNPJ_URL = OPENCNPJ_BASE_URL
 
 
+class FonteCadastralIndisponivelError(RuntimeError):
+    """Uma fonte cadastral falhou; nao significa que o CNPJ nao possua dados."""
+
+
 def somente_digitos(valor: Any) -> str:
     return "".join(caractere for caractere in str(valor or "") if caractere.isdigit())
 
@@ -52,6 +56,36 @@ def _primeiro_valor(registro: dict[str, Any], caminhos: tuple[tuple[str, ...], .
     return None
 
 
+def _normalizar_porte_comparacao(valor: Any) -> str:
+    texto = _normalizar_texto(valor)
+    if texto in {"ME", "MICRO EMPRESA", "MICROEMPRESA"}:
+        return "ME"
+    if texto in {"EPP", "EMPRESA DE PEQUENO PORTE"}:
+        return "EPP"
+    return texto
+
+
+_CAMINHOS_PORTE = (
+    ("porte", "descricao"),
+    ("porte",),
+    ("descricao_porte",),
+    ("porte_empresa",),
+    ("empresa", "porte", "descricao"),
+    ("empresa", "porte"),
+    ("estabelecimento", "porte", "descricao"),
+    ("estabelecimento", "porte"),
+)
+
+
+def extrair_porte_cadastral(payload: dict[str, Any]) -> str | None:
+    """Extrai o porte informado pela fonte sem inferi-lo de Simples/MEI."""
+    valor = _primeiro_valor(payload, _CAMINHOS_PORTE)
+    if isinstance(valor, dict) or valor in (None, ""):
+        return None
+    texto = str(valor).strip()
+    return texto or None
+
+
 def _ignorar_banco_indisponivel(error: RuntimeError) -> bool:
     mensagem = str(error)
     return "DATABASE_URL" in mensagem or "psycopg2-binary" in mensagem
@@ -83,6 +117,7 @@ def _salvar_fornecedor_me_no_banco(fornecedor: dict[str, Any]) -> None:
 
 def _get_json(url: str, max_retries: int = 2) -> dict[str, Any]:
     espera = 0.5
+    ultimo_erro: Exception | None = None
 
     for tentativa in range(max_retries + 1):
         try:
@@ -99,14 +134,17 @@ def _get_json(url: str, max_retries: int = 2) -> dict[str, Any]:
             response.raise_for_status()
             dados = response.json()
             return dados if isinstance(dados, dict) else {}
-        except (requests.RequestException, ValueError):
+        except (requests.RequestException, ValueError) as error:
+            ultimo_erro = error
             if tentativa == max_retries:
-                return {}
+                raise FonteCadastralIndisponivelError(
+                    f"Falha na fonte cadastral apos {max_retries + 1} tentativa(s): {url}"
+                ) from ultimo_erro
 
             time.sleep(espera)
             espera *= 2
 
-    return {}
+    raise FonteCadastralIndisponivelError(f"Falha inesperada na fonte cadastral: {url}")
 
 
 def buscar_brasilapi(cnpj: str) -> dict[str, Any]:
@@ -131,10 +169,40 @@ def buscar_opencnpj(cnpj: str) -> dict[str, Any]:
 
 def coletar_fornecedor(cnpj: str) -> dict[str, Any]:
     cnpj_limpo = somente_digitos(cnpj)
+    fontes: dict[str, dict[str, Any]] = {}
+    status: dict[str, str] = {}
+    for nome, consulta in (("brasilapi", buscar_brasilapi), ("opencnpj", buscar_opencnpj)):
+        try:
+            payload = consulta(cnpj_limpo)
+            fontes[nome] = payload
+            status[nome] = "ok" if payload else "nao_encontrado"
+        except FonteCadastralIndisponivelError:
+            fontes[nome] = {}
+            status[nome] = "indisponivel"
+
+    portes = {
+        nome: extrair_porte_cadastral(payload)
+        for nome, payload in fontes.items()
+        if payload
+    }
+    portes_informados = {nome: valor for nome, valor in portes.items() if valor is not None}
+    portes_normalizados = {_normalizar_porte_comparacao(valor) for valor in portes_informados.values()}
+    porte_divergente = len(portes_normalizados) > 1
+    porte = None if porte_divergente or not portes_informados else next(iter(portes_informados.values()))
+    porte_fonte = None if porte is None else next(
+        nome
+        for nome, valor in portes_informados.items()
+        if _normalizar_porte_comparacao(valor) == _normalizar_porte_comparacao(porte)
+    )
+
     return {
         "cnpj": cnpj_limpo,
-        "brasilapi": buscar_brasilapi(cnpj_limpo),
-        "opencnpj": buscar_opencnpj(cnpj_limpo),
+        **fontes,
+        "porte": porte,
+        "porte_fonte": porte_fonte,
+        "porte_divergente": porte_divergente,
+        "brasilapi_status": status["brasilapi"],
+        "opencnpj_status": status["opencnpj"],
     }
 
 
@@ -146,29 +214,8 @@ def extrair_fornecedor_me(dados: dict[str, Any]) -> dict[str, Any] | None:
     brasilapi = dados.get("brasilapi") if isinstance(dados.get("brasilapi"), dict) else {}
     opencnpj = dados.get("opencnpj") if isinstance(dados.get("opencnpj"), dict) else {}
 
-    porte_brasilapi = normalizar_porte_me(
-        _primeiro_valor(
-            brasilapi,
-            (
-                ("porte",),
-                ("descricao_porte",),
-                ("porte_empresa",),
-                ("empresa", "porte"),
-            ),
-        )
-    )
-    porte_opencnpj = normalizar_porte_me(
-        _primeiro_valor(
-            opencnpj,
-            (
-                ("porte",),
-                ("descricao_porte",),
-                ("porte_empresa",),
-                ("empresa", "porte"),
-                ("estabelecimento", "porte"),
-            ),
-        )
-    )
+    porte_brasilapi = normalizar_porte_me(extrair_porte_cadastral(brasilapi))
+    porte_opencnpj = normalizar_porte_me(extrair_porte_cadastral(opencnpj))
 
     if "ME" not in {porte_brasilapi, porte_opencnpj}:
         return None

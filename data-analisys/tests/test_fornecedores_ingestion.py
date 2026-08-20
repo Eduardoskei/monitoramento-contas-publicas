@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import sys
 import unittest
+import requests
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -43,6 +44,45 @@ class FornecedoresIngestionTest(unittest.TestCase):
         self.assertEqual(dados["cnpj"], "12345678000199")
         self.assertEqual(dados["brasilapi"], {"porte": "MICRO EMPRESA"})
         self.assertEqual(dados["opencnpj"], {"porte": "ME"})
+        self.assertEqual(dados["porte"], "MICRO EMPRESA")
+        self.assertEqual(dados["porte_fonte"], "brasilapi")
+        self.assertFalse(dados["porte_divergente"])
+        self.assertEqual(dados["brasilapi_status"], "ok")
+        self.assertEqual(dados["opencnpj_status"], "ok")
+
+    @patch("app.pipeline.ingestion.fornecedores.time.sleep")
+    @patch("app.pipeline.ingestion.fornecedores.requests.get")
+    def test_falha_da_fonte_nao_e_mascarada_como_cnpj_sem_dados(self, get, _sleep) -> None:
+        get.side_effect = requests.ReadTimeout("fonte demorou")
+
+        with self.assertRaises(fornecedores.FonteCadastralIndisponivelError):
+            fornecedores._get_json("https://fonte.test/cnpj", max_retries=1)
+
+    @patch("app.pipeline.ingestion.fornecedores.buscar_opencnpj")
+    @patch("app.pipeline.ingestion.fornecedores.buscar_brasilapi")
+    def test_coleta_preserva_fallback_e_status_quando_uma_fonte_falha(self, brasilapi, opencnpj) -> None:
+        brasilapi.side_effect = fornecedores.FonteCadastralIndisponivelError("timeout")
+        opencnpj.return_value = {"porte": "MICRO EMPRESA"}
+
+        dados = fornecedores.coletar_fornecedor("11.444.777/0001-61")
+
+        self.assertEqual(dados["brasilapi_status"], "indisponivel")
+        self.assertEqual(dados["opencnpj_status"], "ok")
+        self.assertEqual(dados["opencnpj"]["porte"], "MICRO EMPRESA")
+        self.assertEqual(dados["porte"], "MICRO EMPRESA")
+        self.assertEqual(dados["porte_fonte"], "opencnpj")
+
+    @patch("app.pipeline.ingestion.fornecedores.buscar_opencnpj")
+    @patch("app.pipeline.ingestion.fornecedores.buscar_brasilapi")
+    def test_porte_divergente_nao_escolhe_fonte_silenciosamente(self, brasilapi, opencnpj) -> None:
+        brasilapi.return_value = {"porte": "MICRO EMPRESA"}
+        opencnpj.return_value = {"porte": "EPP"}
+
+        dados = fornecedores.coletar_fornecedor("11.444.777/0001-61")
+
+        self.assertIsNone(dados["porte"])
+        self.assertIsNone(dados["porte_fonte"])
+        self.assertTrue(dados["porte_divergente"])
 
     @patch("app.pipeline.ingestion.fornecedores.buscar_opencnpj")
     @patch("app.pipeline.ingestion.fornecedores.buscar_brasilapi")

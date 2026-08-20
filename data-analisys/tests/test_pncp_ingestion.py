@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import sys
 import unittest
+import requests
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -23,6 +24,24 @@ from app.pipeline.ingestion import pncp
 
 
 class PncpIngestionTest(unittest.TestCase):
+    @patch("app.pipeline.ingestion.pncp.time.sleep")
+    @patch("app.pipeline.ingestion.pncp.requests.get")
+    def test_timeout_nao_e_mascarado_como_lista_vazia(self, get, _sleep) -> None:
+        get.side_effect = requests.ReadTimeout("PNCP demorou")
+
+        with self.assertRaises(pncp.PncpIndisponivelError):
+            pncp.buscar_contratacoes_publicadas("2025-01-01", "2025-01-02", max_paginas=1)
+
+    @patch("app.pipeline.ingestion.pncp.requests.get")
+    def test_204_continua_representando_resultado_vazio_valido(self, get) -> None:
+        resposta = get.return_value
+        resposta.status_code = 204
+
+        self.assertEqual(
+            pncp.buscar_contratacoes_publicadas("2025-01-01", "2025-01-02", max_paginas=1),
+            [],
+        )
+
     def test_normalizar_data_pncp_aceita_iso_e_compacto(self) -> None:
         self.assertEqual(pncp.normalizar_data_pncp("2025-01-07"), "20250107")
         self.assertEqual(pncp.normalizar_data_pncp("20250107"), "20250107")
