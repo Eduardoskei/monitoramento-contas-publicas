@@ -7,7 +7,7 @@ integracoes em app.pipeline.ingestion:
     - pncp.py          -> contratacoes, itens, resultados e contratos (PNCP)
     - tce.py           -> processos, contratos, contratados e itens (TCE-CE)
     - ibge.py          -> municipios (IBGE)
-    - fornecedores.py  -> dados de CNPJ (BrasilAPI / OpenCNPJ)
+    - fornecedores.py  -> dados de CNPJ (OpenCNPJ)
 
 Cada fonte tem seu proprio formato de JSON (aninhado, com nomes de campo em
 camelCase, valores numericos como string, datas em formatos diferentes etc).
@@ -661,7 +661,7 @@ _MAPA_PORTE_EMPRESARIAL = {
 
 def normalizar_porte_empresarial(valor: Any) -> str | None:
     """
-    Mapeia as variacoes de 'porte' usadas pela BrasilAPI/OpenCNPJ/Simples Nacional
+    Mapeia as variacoes de 'porte' usadas pelas fontes cadastrais de CNPJ
     para um vocabulario fixo (MEI/ME/EPP/DEMAIS). A analise do projeto usa ME
     estrita, mas manter a categoria original padronizada permite distinguir EPP,
     MEI e demais sem misturar tudo em um booleano.
@@ -702,17 +702,14 @@ def normalizar_booleano(valor: Any) -> Any:
 
 def limpar_fornecedores(registros: list[dict[str, Any]]) -> pd.DataFrame:
     """
-    Limpa o retorno de `fornecedores.coletar_fornecedor` (combina BrasilAPI +
-    OpenCNPJ para o mesmo CNPJ — pode ter campos duplicados/conflitantes
-    entre as duas fontes apos o flatten, por isso os prefixos 'brasilapi_'
-    e 'opencnpj_' sao mantidos).
+    Limpa o retorno de `fornecedores.coletar_fornecedor`, que consulta a
+    OpenCNPJ e preserva o payload bruto com prefixo 'opencnpj_' apos o flatten.
 
     Alem do pipeline generico (que ja normaliza/valida o cnpj via
     `padronizar_documentos`), adiciona:
       - 'porte_padronizado'/'elegivel_me' a partir do campo 'porte' (ME estrita);
-      - 'optante_simples_nacional'/'optante_mei' (+ datas de opcao/exclusao) a partir
-        dos campos de opcao pelo Simples Nacional/MEI que a BrasilAPI ja retorna na
-        MESMA consulta de CNPJ (nao e uma integracao nova).
+      - 'optante_simples_nacional'/'optante_mei' (+ datas de opcao/exclusao),
+        quando a OpenCNPJ retornar esses campos.
 
     Sao dois criterios distintos de "ser ME" — porte cadastral e regime tributario
     optado nao sao sinonimos (uma empresa pode ser ME por faturamento e nao ter
@@ -732,8 +729,6 @@ def limpar_fornecedores(registros: list[dict[str, Any]]) -> pd.DataFrame:
         c
         for c in (
             "porte",
-            "brasilapi_porte",
-            "brasilapi_descricao_porte",
             "opencnpj_porte",
             "opencnpj_descricao_porte",
             "opencnpj_porte_descricao",
@@ -745,9 +740,6 @@ def limpar_fornecedores(registros: list[dict[str, Any]]) -> pd.DataFrame:
         if c in df.columns
     ]
     if colunas_porte:
-        # Fallback por LINHA: a existencia da coluna da BrasilAPI nao pode
-        # esconder o porte trazido pela OpenCNPJ quando a primeira fonte
-        # respondeu sem esse campo para um CNPJ especifico.
         porte = df[colunas_porte[0]]
         for coluna in colunas_porte[1:]:
             porte = porte.combine_first(df[coluna])
@@ -758,16 +750,69 @@ def limpar_fornecedores(registros: list[dict[str, Any]]) -> pd.DataFrame:
         df["porte_padronizado"] = pd.Series([pd.NA] * len(df), dtype="string")
         df["elegivel_me"] = pd.Series([pd.NA] * len(df), dtype="boolean")
 
-    if "brasilapi_opcao_pelo_simples" in df.columns:
-        df["optante_simples_nacional"] = (
-            df["brasilapi_opcao_pelo_simples"].map(normalizar_booleano).astype("boolean")
-        )
-    if "brasilapi_data_opcao_pelo_simples" in df.columns:
-        df["data_opcao_simples_nacional"] = df["brasilapi_data_opcao_pelo_simples"]
-    if "brasilapi_data_exclusao_do_simples" in df.columns:
-        df["data_exclusao_simples_nacional"] = df["brasilapi_data_exclusao_do_simples"]
-    if "brasilapi_opcao_pelo_mei" in df.columns:
-        df["optante_mei"] = df["brasilapi_opcao_pelo_mei"].map(normalizar_booleano).astype("boolean")
+    coluna_simples = next(
+        (
+            c
+            for c in (
+                "opencnpj_opcao_pelo_simples",
+                "opencnpj_simples_opcao_pelo_simples",
+                "opencnpj_empresa_opcao_pelo_simples",
+                "opencnpj_estabelecimento_opcao_pelo_simples",
+            )
+            if c in df.columns
+        ),
+        None,
+    )
+    if coluna_simples:
+        df["optante_simples_nacional"] = df[coluna_simples].map(normalizar_booleano).astype("boolean")
+
+    coluna_data_opcao_simples = next(
+        (
+            c
+            for c in (
+                "opencnpj_data_opcao_pelo_simples",
+                "opencnpj_simples_data_opcao_pelo_simples",
+                "opencnpj_empresa_data_opcao_pelo_simples",
+                "opencnpj_estabelecimento_data_opcao_pelo_simples",
+            )
+            if c in df.columns
+        ),
+        None,
+    )
+    if coluna_data_opcao_simples:
+        df["data_opcao_simples_nacional"] = df[coluna_data_opcao_simples]
+
+    coluna_data_exclusao_simples = next(
+        (
+            c
+            for c in (
+                "opencnpj_data_exclusao_do_simples",
+                "opencnpj_simples_data_exclusao_do_simples",
+                "opencnpj_empresa_data_exclusao_do_simples",
+                "opencnpj_estabelecimento_data_exclusao_do_simples",
+            )
+            if c in df.columns
+        ),
+        None,
+    )
+    if coluna_data_exclusao_simples:
+        df["data_exclusao_simples_nacional"] = df[coluna_data_exclusao_simples]
+
+    coluna_mei = next(
+        (
+            c
+            for c in (
+                "opencnpj_opcao_pelo_mei",
+                "opencnpj_simples_opcao_pelo_mei",
+                "opencnpj_empresa_opcao_pelo_mei",
+                "opencnpj_estabelecimento_opcao_pelo_mei",
+            )
+            if c in df.columns
+        ),
+        None,
+    )
+    if coluna_mei:
+        df["optante_mei"] = df[coluna_mei].map(normalizar_booleano).astype("boolean")
 
     return df
 

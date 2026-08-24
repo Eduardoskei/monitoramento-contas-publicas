@@ -12,7 +12,6 @@ os.environ.setdefault("TCE_CE_BASE_URL", "https://api-dados-abertos.tce.ce.gov.b
 os.environ.setdefault("IBGE_LOCALIDADES_BASE_URL", "https://servicodados.ibge.gov.br/api/v1/localidades")
 os.environ.setdefault("PNCP_CONSULTA_BASE_URL", "https://pncp.gov.br/api/consulta")
 os.environ.setdefault("PNCP_GESTAO_BASE_URL", "https://pncp.gov.br/api/pncp")
-os.environ.setdefault("BRASILAPI_BASE_URL", "https://brasilapi.com.br/api")
 os.environ.setdefault("OPENCNPJ_BASE_URL", "https://kitana.opencnpj.com")
 os.environ.setdefault("UF_PADRAO", "CE")
 os.environ.setdefault("CODIGO_IBGE_PADRAO", "2304400")
@@ -76,15 +75,12 @@ def _tabelas_pncp_com_itens_e_contrato() -> dict[str, pd.DataFrame]:
 
 
 def _fornecedores_df_valido() -> pd.DataFrame:
-    with patch("app.pipeline.ingestion.fornecedores.buscar_opencnpj") as mock_opencnpj, patch(
-        "app.pipeline.ingestion.fornecedores.buscar_brasilapi"
-    ) as mock_brasilapi:
-        mock_brasilapi.return_value = {
+    with patch("app.pipeline.ingestion.fornecedores.buscar_opencnpj") as mock_opencnpj:
+        mock_opencnpj.return_value = {
             "cnpj": "11444777000161",
             "razao_social": "Comércio Exemplo LTDA",
             "porte": "MICRO EMPRESA",
         }
-        mock_opencnpj.return_value = {"cnpj": "11444777000161", "razao_social": "Comércio Exemplo LTDA"}
         fornecedor = fornecedores.coletar_fornecedor("11.444.777/0001-61")
 
     return cleaning.limpar_fornecedores([fornecedor])

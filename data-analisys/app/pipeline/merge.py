@@ -6,7 +6,7 @@ Camada de integracao (merge) entre as bases ja limpas por app.pipeline.cleaning:
     - PNCP (contratacoes + itens + contratos)
     - TCE-CE (contratos/contratados/processos/itens)
     - IBGE (municipios)
-    - Fornecedores (BrasilAPI/OpenCNPJ)
+    - Fornecedores (OpenCNPJ)
 
 Cada fonte e limpa de forma independente em cleaning.py (uma funcao "limpar_*"
 por fonte, que nao sabe nada das outras). Este modulo e o unico lugar do
@@ -60,10 +60,11 @@ def juntar_itens_pncp(tabelas: dict[str, pd.DataFrame]) -> pd.DataFrame:
 
 _COLUNAS_FORNECEDOR_EXPORTADAS = (
     "cnpj",
-    "brasilapi_razao_social",
+    "razao_social",
     "porte_padronizado",
     "elegivel_me",
     "cnpj_valido",
+    "opencnpj_status",
     "optante_simples_nacional",
     "optante_mei",
 )
@@ -79,8 +80,8 @@ def extrair_cnpjs_distintos(*colunas_cnpj: pd.Series | None) -> list[str]:
     Documentos com 11 digitos (CPF, contratado pessoa fisica) ou formato
     invalido (ex.: valores mascarados/criptografados que o TCE as vezes
     retorna para CPF — confirmado na varredura real) sao descartados
-    silenciosamente: a base de fornecedores so cobre CNPJ (BrasilAPI/OpenCNPJ
-    nao fazem consulta de CPF).
+    silenciosamente: a base de fornecedores so cobre CNPJ (OpenCNPJ nao faz
+    consulta de CPF).
     """
     cnpjs: set[str] = set()
     for serie in colunas_cnpj:
