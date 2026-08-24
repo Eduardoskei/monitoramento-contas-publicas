@@ -1,10 +1,15 @@
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 import time
 import requests
 
 from app.config import PNCP_CONSULTA_BASE_URL, PNCP_GESTAO_BASE_URL
+from app.utils import (
+    filtrar_params_vazios,
+    normalizar_data,
+    primeiro_valor as _primeiro_valor,
+    somente_digitos,
+)
 
 CONSULTA_BASE_URL = PNCP_CONSULTA_BASE_URL
 GESTAO_BASE_URL = PNCP_GESTAO_BASE_URL
@@ -23,26 +28,8 @@ class IdentificadorCompra:
     sequencial_compra: int
 
 
-def somente_digitos(valor: Any) -> str:
-    return "".join(caractere for caractere in str(valor or "") if caractere.isdigit())
-
-
 def normalizar_data_pncp(data: str) -> str:
-    if not isinstance(data, str):
-        raise TypeError(f"Data deve ser str, nao {type(data).__name__}.")
-
-    data = data.strip()
-    for formato in ("%Y%m%d", "%Y-%m-%d"):
-        try:
-            return datetime.strptime(data, formato).strftime("%Y%m%d")
-        except ValueError:
-            pass
-
-    raise ValueError(f"Data invalida: {data!r}. Use YYYYMMDD ou YYYY-MM-DD.")
-
-
-def _limpar_params(params: dict[str, Any]) -> dict[str, Any]:
-    return {chave: valor for chave, valor in params.items() if valor not in (None, "")}
+    return normalizar_data(data, ("%Y%m%d", "%Y-%m-%d"), "%Y%m%d", "YYYYMMDD ou YYYY-MM-DD")
 
 
 def _get_json(
@@ -58,7 +45,7 @@ def _get_json(
     ultimo_erro: Exception | None = None
     for tentativa in range(max_retries + 1):
         try:
-            response = requests.get(url, params=_limpar_params(params or {}), timeout=(10, 40))
+            response = requests.get(url, params=filtrar_params_vazios(params or {}), timeout=(10, 40))
 
             if response.status_code == 204:
                 return []
@@ -84,23 +71,6 @@ def _get_json(
             espera *= 2
 
     raise PncpIndisponivelError(f"Falha inesperada ao consultar o PNCP: {url}")
-
-
-def _get_nested(registro: dict[str, Any], caminho: tuple[str, ...]) -> Any:
-    atual: Any = registro
-    for chave in caminho:
-        if not isinstance(atual, dict):
-            return None
-        atual = atual.get(chave)
-    return atual
-
-
-def _primeiro_valor(registro: dict[str, Any], caminhos: tuple[tuple[str, ...], ...]) -> Any:
-    for caminho in caminhos:
-        valor = _get_nested(registro, caminho)
-        if valor not in (None, ""):
-            return valor
-    return None
 
 
 def _numero_item(item: dict[str, Any]) -> int | None:

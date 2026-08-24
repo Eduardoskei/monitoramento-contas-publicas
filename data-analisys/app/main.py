@@ -10,11 +10,7 @@ from app.pipeline import analisys
 from app.pipeline.ingestion.fornecedores import FonteCadastralIndisponivelError
 from app.pipeline.ingestion.pncp import PncpIndisponivelError
 from app.pipeline.kpis import DadosInsuficientesKPI
-
-
-def _banco_opcional_indisponivel(error: RuntimeError) -> bool:
-    mensagem = str(error)
-    return "DATABASE_URL" in mensagem or "psycopg2-binary" in mensagem
+from app.utils import banco_indisponivel as _banco_opcional_indisponivel
 
 
 @asynccontextmanager

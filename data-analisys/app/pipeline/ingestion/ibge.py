@@ -3,13 +3,9 @@ import time
 import requests
 from app.config import IBGE_LOCALIDADES_BASE_URL
 from app import database
+from app.utils import banco_indisponivel as _ignorar_banco_indisponivel
 
 BASE_URL = IBGE_LOCALIDADES_BASE_URL
-
-
-def _ignorar_banco_indisponivel(error: RuntimeError) -> bool:
-    mensagem = str(error)
-    return "DATABASE_URL" in mensagem or "psycopg2-binary" in mensagem
 
 
 def _registrar_falha_banco(acao: str, error: Exception) -> None:

@@ -1,9 +1,14 @@
 from typing import Any, Iterable
 import time
-import unicodedata
 import requests
 from app.config import OPENCNPJ_BASE_URL
 from app import database
+from app.utils import (
+    banco_indisponivel as _ignorar_banco_indisponivel,
+    normalizar_texto as _normalizar_texto,
+    primeiro_valor as _primeiro_valor,
+    somente_digitos,
+)
 
 OPENCNPJ_URL = OPENCNPJ_BASE_URL
 
@@ -11,42 +16,11 @@ class FonteCadastralIndisponivelError(RuntimeError):
     """Uma fonte cadastral falhou; nao significa que o CNPJ nao possua dados."""
 
 
-def somente_digitos(valor: Any) -> str:
-    return "".join(caractere for caractere in str(valor or "") if caractere.isdigit())
-
-
-def _normalizar_texto(valor: Any) -> str:
-    texto = str(valor or "").strip().upper()
-    texto = "".join(
-        caractere
-        for caractere in unicodedata.normalize("NFKD", texto)
-        if not unicodedata.combining(caractere)
-    )
-    return " ".join(texto.replace("-", " ").split())
-
-
 def normalizar_porte_me(valor: Any) -> str | None:
     texto = _normalizar_texto(valor)
     if texto in {"ME", "MICRO EMPRESA", "MICROEMPRESA"}:
         return "ME"
 
-    return None
-
-
-def _get_nested(registro: dict[str, Any], caminho: tuple[str, ...]) -> Any:
-    atual: Any = registro
-    for chave in caminho:
-        if not isinstance(atual, dict):
-            return None
-        atual = atual.get(chave)
-    return atual
-
-
-def _primeiro_valor(registro: dict[str, Any], caminhos: tuple[tuple[str, ...], ...]) -> Any:
-    for caminho in caminhos:
-        valor = _get_nested(registro, caminho)
-        if valor not in (None, ""):
-            return valor
     return None
 
 
@@ -87,11 +61,6 @@ def extrair_razao_social(payload: dict[str, Any]) -> str | None:
         return None
     texto = str(valor).strip()
     return texto or None
-
-
-def _ignorar_banco_indisponivel(error: RuntimeError) -> bool:
-    mensagem = str(error)
-    return "DATABASE_URL" in mensagem or "psycopg2-binary" in mensagem
 
 
 def _buscar_fornecedor_me_no_banco(cnpj: str) -> dict[str, Any] | None:
