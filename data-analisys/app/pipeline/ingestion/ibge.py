@@ -1,7 +1,6 @@
 from typing import Any
 import time
 import requests
-
 from app.config import IBGE_LOCALIDADES_BASE_URL
 from app import database
 

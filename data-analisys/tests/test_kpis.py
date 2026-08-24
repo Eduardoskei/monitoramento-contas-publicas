@@ -12,7 +12,6 @@ os.environ.setdefault("TCE_CE_BASE_URL", "https://api-dados-abertos.tce.ce.gov.b
 os.environ.setdefault("IBGE_LOCALIDADES_BASE_URL", "https://servicodados.ibge.gov.br/api/v1/localidades")
 os.environ.setdefault("PNCP_CONSULTA_BASE_URL", "https://pncp.gov.br/api/consulta")
 os.environ.setdefault("PNCP_GESTAO_BASE_URL", "https://pncp.gov.br/api/pncp")
-os.environ.setdefault("BRASILAPI_BASE_URL", "https://brasilapi.com.br/api")
 os.environ.setdefault("OPENCNPJ_BASE_URL", "https://kitana.opencnpj.com")
 os.environ.setdefault("UF_PADRAO", "CE")
 os.environ.setdefault("CODIGO_IBGE_PADRAO", "2304400")
@@ -195,15 +194,12 @@ class ParticipacaoMePorMesEndToEndTest(unittest.TestCase):
                 tce.buscar_contratados("20250101", "20250301", codigo_municipio="010")
             )
 
-        with patch("app.pipeline.ingestion.fornecedores.buscar_opencnpj") as mock_opencnpj, patch(
-            "app.pipeline.ingestion.fornecedores.buscar_brasilapi"
-        ) as mock_brasilapi:
+        with patch("app.pipeline.ingestion.fornecedores.buscar_opencnpj") as mock_opencnpj:
             # ME entra no KPI; EPP existe na fonte, mas nao entra neste projeto.
-            mock_brasilapi.side_effect = [
+            mock_opencnpj.side_effect = [
                 {"cnpj": "11444777000161", "porte": "MICRO EMPRESA"},
                 {"cnpj": "98765432000111", "porte": "EMPRESA DE PEQUENO PORTE"},
             ]
-            mock_opencnpj.return_value = {}
             brutos = fornecedores.coletar_fornecedores_em_lote(
                 ["11.444.777/0001-61", "98.765.432/0001-11"], throttle_segundos=0
             )

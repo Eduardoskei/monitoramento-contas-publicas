@@ -12,7 +12,6 @@ os.environ.setdefault("TCE_CE_BASE_URL", "https://api-dados-abertos.tce.ce.gov.b
 os.environ.setdefault("IBGE_LOCALIDADES_BASE_URL", "https://servicodados.ibge.gov.br/api/v1/localidades")
 os.environ.setdefault("PNCP_CONSULTA_BASE_URL", "https://pncp.gov.br/api/consulta")
 os.environ.setdefault("PNCP_GESTAO_BASE_URL", "https://pncp.gov.br/api/pncp")
-os.environ.setdefault("BRASILAPI_BASE_URL", "https://brasilapi.com.br/api")
 os.environ.setdefault("OPENCNPJ_BASE_URL", "https://kitana.opencnpj.com")
 os.environ.setdefault("UF_PADRAO", "CE")
 os.environ.setdefault("CODIGO_IBGE_PADRAO", "2304400")
@@ -396,12 +395,11 @@ class LimparIbgeMunicipiosTest(unittest.TestCase):
 
 
 class LimparFornecedoresTest(unittest.TestCase):
-    """Usa app.pipeline.ingestion.fornecedores de verdade (só BrasilAPI/OpenCNPJ são mockadas)."""
+    """Usa app.pipeline.ingestion.fornecedores de verdade (só OpenCNPJ é mockada)."""
 
     @patch("app.pipeline.ingestion.fornecedores.buscar_opencnpj")
-    @patch("app.pipeline.ingestion.fornecedores.buscar_brasilapi")
-    def test_pipeline_completo_a_partir_da_ingestao_real(self, mock_brasilapi, mock_opencnpj) -> None:
-        mock_brasilapi.return_value = {
+    def test_pipeline_completo_a_partir_da_ingestao_real(self, mock_opencnpj) -> None:
+        mock_opencnpj.return_value = {
             # CNPJ matematicamente valido (digitos verificadores corretos)
             "cnpj": "11444777000161",
             "razao_social": "Comércio Exemplo LTDA",
@@ -421,13 +419,6 @@ class LimparFornecedoresTest(unittest.TestCase):
             "qsa": [
                 {"nome_socio": "Fulano de Tal", "qualificacao_socio": "Socio-Administrador"},
             ],
-        }
-        mock_opencnpj.return_value = {
-            "cnpj": "11444777000161",
-            "razao_social": "Comércio Exemplo LTDA",
-            "situacao_cadastral": "ATIVA",
-            "uf": "CE",
-            "municipio": "Amontada",
             "socios": [
                 {"nome": "Fulano de Tal", "qualificacao": "Socio-Administrador"},
             ],
@@ -442,13 +433,13 @@ class LimparFornecedoresTest(unittest.TestCase):
         self.assertEqual(len(df), 1)  # duplicata pelo cnpj removida
         self.assertEqual(df.iloc[0]["cnpj"], "11444777000161")
         self.assertTrue(df.iloc[0]["cnpj_valido"])  # DV correto
-        self.assertEqual(df.iloc[0]["brasilapi_razao_social"], "Comércio Exemplo LTDA")
+        self.assertEqual(df.iloc[0]["razao_social"], "Comércio Exemplo LTDA")
         # chave normalizada (sem acento/maiusculo) para agregacao/join, sem alterar o texto original
-        self.assertEqual(df.iloc[0]["brasilapi_razao_social_chave"], "COMERCIO EXEMPLO LTDA")
+        self.assertEqual(df.iloc[0]["razao_social_chave"], "COMERCIO EXEMPLO LTDA")
         # colunas identificadoras (cep/telefone) nao podem virar numero
-        self.assertEqual(df.iloc[0]["brasilapi_cep"], "62240000")
-        self.assertEqual(df.iloc[0]["brasilapi_ddd_telefone_1"], "8834321234")
-        self.assertEqual(df.iloc[0]["opencnpj_situacao_cadastral"], "ATIVA")
+        self.assertEqual(df.iloc[0]["opencnpj_cep"], "62240000")
+        self.assertEqual(df.iloc[0]["opencnpj_ddd_telefone_1"], "8834321234")
+        self.assertEqual(df.iloc[0]["opencnpj_descricao_situacao_cadastral"], "ATIVA")
         # porte padronizado para o vocabulario fixo usado na analise de compras ME
         self.assertEqual(df.iloc[0]["porte_padronizado"], "ME")
         self.assertTrue(df.iloc[0]["elegivel_me"])
@@ -458,15 +449,14 @@ class LimparFornecedoresTest(unittest.TestCase):
         self.assertFalse(df.iloc[0]["optante_mei"])
         # lista de dicts (socios) e mantida intacta, sem quebrar a deduplicacao por cnpj
         self.assertEqual(
-            df.iloc[0]["brasilapi_qsa"],
+            df.iloc[0]["opencnpj_qsa"],
             [{"nome_socio": "Fulano de Tal", "qualificacao_socio": "Socio-Administrador"}],
         )
 
-    def test_porte_da_opencnpj_e_fallback_quando_brasilapi_nao_informa(self) -> None:
+    def test_porte_da_opencnpj_pode_vir_aninhado(self) -> None:
         df = cleaning.limpar_fornecedores([
             {
                 "cnpj": "11444777000161",
-                "brasilapi": {"razao_social": "Empresa real"},
                 "opencnpj": {"porte": {"descricao": "MICRO EMPRESA"}},
             }
         ])
@@ -478,8 +468,7 @@ class LimparFornecedoresTest(unittest.TestCase):
         df = cleaning.limpar_fornecedores([
             {
                 "cnpj": "98765432000111",
-                "brasilapi": {"porte": "EMPRESA DE PEQUENO PORTE"},
-                "opencnpj": {},
+                "opencnpj": {"porte": "EMPRESA DE PEQUENO PORTE"},
             }
         ])
 
@@ -491,22 +480,20 @@ class LimparFornecedoresTest(unittest.TestCase):
             [
                 {
                     "cnpj": "11444777000161",
-                    "brasilapi": {
+                    "opencnpj": {
                         "porte": "MICRO EMPRESA",
                         "opcao_pelo_simples": None,
                         "opcao_pelo_mei": "não",
                     },
-                    "opencnpj": {},
                     "porte": "MICRO EMPRESA",
                 },
                 {
                     "cnpj": "98765432000111",
-                    "brasilapi": {
+                    "opencnpj": {
                         "porte": "DEMAIS",
                         "opcao_pelo_simples": "sim",
                         "opcao_pelo_mei": None,
                     },
-                    "opencnpj": {},
                     "porte": "DEMAIS",
                 },
             ]
@@ -523,7 +510,6 @@ class LimparFornecedoresTest(unittest.TestCase):
             [
                 {
                     "cnpj": "11444777000161",
-                    "brasilapi": {"cnpj": "11444777000161"},
                     "opencnpj": {},
                 }
             ]

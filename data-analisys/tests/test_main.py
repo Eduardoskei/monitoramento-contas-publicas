@@ -81,9 +81,10 @@ class MainTest(unittest.TestCase):
         coletar_fornecedores.return_value = [
             {
                 "cnpj": "11444777000161",
-                "brasilapi": {"porte": "MICRO EMPRESA"},
-                "opencnpj": {},
+                "razao_social": "Fornecedor Teste",
+                "opencnpj": {"porte": "MICRO EMPRESA"},
                 "porte": "MICRO EMPRESA",
+                "opencnpj_status": "ok",
             }
         ]
 

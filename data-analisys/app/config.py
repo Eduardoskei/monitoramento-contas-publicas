@@ -14,7 +14,6 @@ _DEFAULTS = {
     "IBGE_LOCALIDADES_BASE_URL": "https://servicodados.ibge.gov.br/api/v1/localidades",
     "PNCP_CONSULTA_BASE_URL": "https://pncp.gov.br/api/consulta",
     "PNCP_GESTAO_BASE_URL": "https://pncp.gov.br/api/pncp",
-    "BRASILAPI_BASE_URL": "https://brasilapi.com.br/api",
     "OPENCNPJ_BASE_URL": "https://kitana.opencnpj.com",
     "UF_PADRAO": "CE",
     "CODIGO_IBGE_PADRAO": "2304400",
@@ -45,7 +44,6 @@ TCE_CE_BASE_URL = _env("TCE_CE_BASE_URL", strip_slash=True)
 IBGE_LOCALIDADES_BASE_URL = _env("IBGE_LOCALIDADES_BASE_URL", strip_slash=True)
 PNCP_CONSULTA_BASE_URL = _env("PNCP_CONSULTA_BASE_URL", strip_slash=True)
 PNCP_GESTAO_BASE_URL = _env("PNCP_GESTAO_BASE_URL", strip_slash=True)
-BRASILAPI_BASE_URL = _env("BRASILAPI_BASE_URL", strip_slash=True)
 OPENCNPJ_BASE_URL = _env("OPENCNPJ_BASE_URL", strip_slash=True)
 
 UF_PADRAO = _env("UF_PADRAO")

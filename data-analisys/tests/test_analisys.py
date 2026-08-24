@@ -106,9 +106,9 @@ class ConsultarTceContratosTest(unittest.TestCase):
         coletar.return_value = [
             {
                 "cnpj": "11444777000161",
-                "brasilapi": {"cnpj": "11444777000161", "porte": "MICRO EMPRESA"},
-                "opencnpj": {},
+                "opencnpj": {"cnpj": "11444777000161", "porte": "MICRO EMPRESA"},
                 "porte": "MICRO EMPRESA",
+                "opencnpj_status": "ok",
             }
         ]
 
@@ -164,15 +164,15 @@ class ConsultarKpiTceMePorMesTest(unittest.TestCase):
         coletar.return_value = [
             {
                 "cnpj": "11444777000161",
-                "brasilapi": {"porte": "MICRO EMPRESA"},
-                "opencnpj": {},
+                "opencnpj": {"porte": "MICRO EMPRESA"},
                 "porte": "MICRO EMPRESA",
+                "opencnpj_status": "ok",
             },
             {
                 "cnpj": "98765432000111",
-                "brasilapi": {"porte": "EMPRESA DE PEQUENO PORTE"},
-                "opencnpj": {},
+                "opencnpj": {"porte": "EMPRESA DE PEQUENO PORTE"},
                 "porte": "EMPRESA DE PEQUENO PORTE",
+                "opencnpj_status": "ok",
             },
         ]
 
