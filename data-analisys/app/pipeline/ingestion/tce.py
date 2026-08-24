@@ -1,10 +1,10 @@
-from datetime import datetime
 from typing import Any
 import time
 import json
 import requests
 
 from app.config import CODIGO_MUNICIPIO_TCE_PADRAO, TCE_CE_BASE_URL
+from app.utils import normalizar_data
 
 BASE_URL = TCE_CE_BASE_URL
 TAMANHO_PAGINA = 1000
@@ -17,17 +17,7 @@ ENDPOINT_ITENS = "itens_compoem_bens_servicos"
 
 
 def normalizar_data_tce(data: str) -> str:
-    if not isinstance(data, str):
-        raise TypeError(f"Data deve ser str, não {type(data).__name__}.")
-
-    data = data.strip()
-    for formato in ("%Y-%m-%d", "%Y%m%d"):
-        try:
-            return datetime.strptime(data, formato).date().isoformat()
-        except ValueError:
-            pass
-
-    raise ValueError(f"Data inválida: {data!r}. Use YYYY-MM-DD ou YYYYMMDD.")
+    return normalizar_data(data, ("%Y-%m-%d", "%Y%m%d"), "%Y-%m-%d", "YYYY-MM-DD ou YYYYMMDD")
 
 
 def buscar_dados_tce(endpoint: str, params: dict[str, Any], max_retries: int = 3) -> dict[str, Any]:

@@ -44,10 +44,11 @@ contra a base do IBGE).
 from __future__ import annotations
 
 import re
-import unicodedata
 from typing import Any, Iterable
 
 import pandas as pd
+
+from app.utils import remover_acentos, somente_digitos
 
 # ---------------------------------------------------------------------------
 # 1. MOTOR GENERICO — funciona para qualquer JSON bruto de API
@@ -55,12 +56,6 @@ import pandas as pd
 
 _CAMEL_RE = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 _NAO_ALFANUM_RE = re.compile(r"[^a-z0-9]+")
-
-
-def remover_acentos(texto: str) -> str:
-    """Remove acentos/diacriticos mantendo o restante do texto intacto."""
-    nfkd = unicodedata.normalize("NFKD", texto)
-    return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
 def to_snake_case(nome: Any) -> str:
@@ -428,10 +423,6 @@ _PADRAO_COLUNA_CNPJ = re.compile(r"(^|_)cnpj($|_)")
 _PADRAO_COLUNA_CPF = re.compile(r"(^|_)cpf($|_)")
 
 
-def _somente_digitos(valor: Any) -> str:
-    return "".join(c for c in str(valor or "") if c.isdigit())
-
-
 def _digito_verificador(base: str, pesos: list[int]) -> int:
     soma = sum(int(digito) * peso for digito, peso in zip(base, pesos))
     resto = soma % 11
@@ -441,13 +432,13 @@ def _digito_verificador(base: str, pesos: list[int]) -> int:
 def normalizar_cnpj(valor: Any) -> str | None:
     """Reduz a apenas digitos; retorna None se nao tiver os 14 digitos esperados
     (nesse caso o valor e inutilizavel como chave e deve ser tratado como ausente)."""
-    digitos = _somente_digitos(valor)
+    digitos = somente_digitos(valor)
     return digitos if len(digitos) == 14 else None
 
 
 def normalizar_cpf(valor: Any) -> str | None:
     """Reduz a apenas digitos; retorna None se nao tiver os 11 digitos esperados."""
-    digitos = _somente_digitos(valor)
+    digitos = somente_digitos(valor)
     return digitos if len(digitos) == 11 else None
 
 

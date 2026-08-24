@@ -5,6 +5,8 @@ from typing import Any
 
 from dotenv import load_dotenv
 
+from app.utils import primeiro_valor as _primeiro_valor
+
 try:
     from psycopg2 import pool as pg_pool
 except ImportError as error:
@@ -40,23 +42,6 @@ def _ensure_driver() -> None:
         raise RuntimeError(
             "psycopg2-binary nao esta instalado. Instale as dependencias antes de usar o Postgres."
         ) from _PSYCOPG2_IMPORT_ERROR
-
-
-def _get_nested(registro: dict[str, Any], caminho: tuple[str, ...]) -> Any:
-    atual: Any = registro
-    for chave in caminho:
-        if not isinstance(atual, dict):
-            return None
-        atual = atual.get(chave)
-    return atual
-
-
-def _primeiro_valor(registro: dict[str, Any], caminhos: tuple[tuple[str, ...], ...]) -> Any:
-    for caminho in caminhos:
-        valor = _get_nested(registro, caminho)
-        if valor not in (None, ""):
-            return valor
-    return None
 
 
 def _extrair_uf_municipio(municipio: dict[str, Any]) -> str | None:
