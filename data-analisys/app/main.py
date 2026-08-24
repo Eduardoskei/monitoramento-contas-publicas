@@ -1,16 +1,26 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Annotated
-
-from fastapi import FastAPI, HTTPException, Query
-
-from app.config import CODIGO_MUNICIPIO_TCE_PADRAO, MODALIDADE_ID_PADRAO, UF_PADRAO
+from fastapi import FastAPI
 from app import database
 from app.pipeline import analisys
-from app.pipeline.ingestion.fornecedores import FonteCadastralIndisponivelError
-from app.pipeline.ingestion.pncp import PncpIndisponivelError
-from app.pipeline.kpis import DadosInsuficientesKPI
+from app.route import (
+    health,
+    pncp_contratacoes,
+    router,
+    tce_contratos,
+    tce_kpi_me_por_mes,
+)
 from app.utils import banco_indisponivel as _banco_opcional_indisponivel
+
+__all__ = [
+    "analisys",
+    "app",
+    "health",
+    "lifespan",
+    "pncp_contratacoes",
+    "tce_contratos",
+    "tce_kpi_me_por_mes",
+]
 
 
 @asynccontextmanager
@@ -27,87 +37,11 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         database.close_pool()
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    title="Monitoramento de Contas Publicas",
+    description="API para consulta e analise de contratacoes publicas a partir do PNCP e TCE-CE.",
+    version="1.0.0",
+    lifespan=lifespan,
+)
 
-
-@app.get("/health")
-async def health():
-    return {"status": "healthy"}
-
-
-def _erro_pipeline(error: Exception) -> HTTPException:
-    if isinstance(error, (ValueError, TypeError, DadosInsuficientesKPI)):
-        return HTTPException(status_code=422, detail=str(error))
-    if isinstance(error, (PncpIndisponivelError, FonteCadastralIndisponivelError)):
-        return HTTPException(status_code=503, detail=str(error))
-    return HTTPException(status_code=500, detail="Falha inesperada ao executar o pipeline.")
-
-
-@app.get("/pipeline/pncp/contratacoes")
-def pncp_contratacoes(
-    data_inicial: Annotated[str, Query(description="Data inicial em YYYY-MM-DD ou YYYYMMDD.")],
-    data_final: Annotated[str, Query(description="Data final em YYYY-MM-DD ou YYYYMMDD.")],
-    modalidade_id: Annotated[int, Query(ge=1)] = MODALIDADE_ID_PADRAO,
-    uf: Annotated[str | None, Query(min_length=2, max_length=2)] = UF_PADRAO,
-    codigo_municipio_ibge: str | None = None,
-    cnpj_orgao: str | None = None,
-    max_paginas: Annotated[int | None, Query(ge=1)] = 1,
-    incluir_detalhes: bool = False,
-    enriquecer_municipios: bool = True,
-    enriquecer_fornecedores: bool = False,
-    limite: Annotated[int | None, Query(ge=1, le=1000)] = 100,
-) -> dict[str, object]:
-    try:
-        return analisys.consultar_pncp_contratacoes(
-            data_inicial=data_inicial,
-            data_final=data_final,
-            modalidade_id=modalidade_id,
-            uf=uf,
-            codigo_municipio_ibge=codigo_municipio_ibge,
-            cnpj_orgao=cnpj_orgao,
-            max_paginas=max_paginas,
-            incluir_detalhes=incluir_detalhes,
-            enriquecer_municipios=enriquecer_municipios,
-            enriquecer_fornecedores=enriquecer_fornecedores,
-            limite=limite,
-        )
-    except Exception as error:
-        raise _erro_pipeline(error) from error
-
-
-@app.get("/pipeline/tce/contratos")
-def tce_contratos(
-    data_inicial: Annotated[str, Query(description="Data inicial em YYYY-MM-DD ou YYYYMMDD.")],
-    data_final: Annotated[str, Query(description="Data final em YYYY-MM-DD ou YYYYMMDD.")],
-    codigo_municipio: str = CODIGO_MUNICIPIO_TCE_PADRAO,
-    enriquecer_fornecedores: bool = False,
-    limite: Annotated[int | None, Query(ge=1, le=1000)] = 100,
-) -> dict[str, object]:
-    try:
-        return analisys.consultar_tce_contratos(
-            data_inicial=data_inicial,
-            data_final=data_final,
-            codigo_municipio=codigo_municipio,
-            enriquecer_fornecedores=enriquecer_fornecedores,
-            limite=limite,
-        )
-    except Exception as error:
-        raise _erro_pipeline(error) from error
-
-
-@app.get("/pipeline/tce/kpis/me-por-mes")
-def tce_kpi_me_por_mes(
-    data_inicial: Annotated[str, Query(description="Data inicial em YYYY-MM-DD ou YYYYMMDD.")],
-    data_final: Annotated[str, Query(description="Data final em YYYY-MM-DD ou YYYYMMDD.")],
-    codigo_municipio: str = CODIGO_MUNICIPIO_TCE_PADRAO,
-    limite: Annotated[int | None, Query(ge=1, le=1000)] = 100,
-) -> dict[str, object]:
-    try:
-        return analisys.consultar_kpi_tce_me_por_mes(
-            data_inicial=data_inicial,
-            data_final=data_final,
-            codigo_municipio=codigo_municipio,
-            limite=limite,
-        )
-    except Exception as error:
-        raise _erro_pipeline(error) from error
+app.include_router(router)

@@ -1,12 +1,7 @@
-from __future__ import annotations
-
 import os
 from typing import Any
-
 from dotenv import load_dotenv
-
 from app.utils import primeiro_valor as _primeiro_valor
-
 try:
     from psycopg2 import pool as pg_pool
 except ImportError as error:
