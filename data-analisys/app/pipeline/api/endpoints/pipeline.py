@@ -1,16 +1,13 @@
 from typing import Annotated
 from fastapi import APIRouter, HTTPException, Query
-from app.config import CODIGO_MUNICIPIO_TCE_PADRAO, MODALIDADE_ID_PADRAO, UF_PADRAO
+from app.core.config import CODIGO_MUNICIPIO_TCE_PADRAO, MODALIDADE_ID_PADRAO, UF_PADRAO
 from app.pipeline import analisys
 from app.pipeline.ingestion.fornecedores import FonteCadastralIndisponivelError
 from app.pipeline.ingestion.pncp import PncpIndisponivelError
 from app.pipeline.kpis import DadosInsuficientesKPI
 
 
-router = APIRouter()
-
-health_router = APIRouter(tags=["Sistema"])
-pipeline_router = APIRouter(
+router = APIRouter(
     prefix="/pipeline",
     tags=["Pipeline"],
     responses={
@@ -22,15 +19,6 @@ pipeline_router = APIRouter(
 )
 
 
-@health_router.get(
-    "/health",
-    summary="Verifica saude da API",
-    response_description="Status operacional da API.",
-)
-async def health():
-    return {"status": "healthy"}
-
-
 def _erro_pipeline(error: Exception) -> HTTPException:
     if isinstance(error, (ValueError, TypeError, DadosInsuficientesKPI)):
         return HTTPException(status_code=422, detail=str(error))
@@ -39,7 +27,7 @@ def _erro_pipeline(error: Exception) -> HTTPException:
     return HTTPException(status_code=500, detail="Falha inesperada ao executar o pipeline.")
 
 
-@pipeline_router.get(
+@router.get(
     "/pncp/contratacoes",
     summary="Consulta contratacoes publicadas no PNCP",
     description="Executa o fluxo de ingestao, limpeza e enriquecimento das contratacoes publicadas no PNCP.",
@@ -103,7 +91,7 @@ def pncp_contratacoes(
         raise _erro_pipeline(error) from error
 
 
-@pipeline_router.get(
+@router.get(
     "/tce/contratos",
     summary="Consulta contratos no TCE-CE",
     description="Executa o fluxo de ingestao, limpeza e enriquecimento dos contratos publicados pelo TCE-CE.",
@@ -137,7 +125,7 @@ def tce_contratos(
         raise _erro_pipeline(error) from error
 
 
-@pipeline_router.get(
+@router.get(
     "/tce/kpis/me-por-mes",
     summary="Calcula participacao de ME por mes",
     description="Calcula a participacao mensal de microempresas nos contratos do TCE-CE.",
@@ -164,7 +152,3 @@ def tce_kpi_me_por_mes(
         )
     except Exception as error:
         raise _erro_pipeline(error) from error
-
-
-router.include_router(health_router)
-router.include_router(pipeline_router)

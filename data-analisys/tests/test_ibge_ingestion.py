@@ -18,7 +18,7 @@ os.environ.setdefault("CODIGO_IBGE_PADRAO", "2304400")
 os.environ.setdefault("CODIGO_MUNICIPIO_TCE_PADRAO", "010")
 os.environ.setdefault("MODALIDADE_ID_PADRAO", "6")
 
-from app import database
+from app.core import database
 from app.pipeline.ingestion import ibge
 
 

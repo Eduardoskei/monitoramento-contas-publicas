@@ -25,16 +25,17 @@ REQUIRED_ENV = {
 
 class ConfigTest(unittest.TestCase):
     def _reload_config_with_env(self, env: dict[str, str]):
-        original_config = sys.modules.get("app.config")
-        sys.modules.pop("app.config", None)
+        module_name = "app.core.config"
+        original_config = sys.modules.get(module_name)
+        sys.modules.pop(module_name, None)
 
         try:
             with patch.dict(os.environ, env, clear=True):
-                return importlib.import_module("app.config")
+                return importlib.import_module(module_name)
         finally:
-            sys.modules.pop("app.config", None)
+            sys.modules.pop(module_name, None)
             if original_config is not None:
-                sys.modules["app.config"] = original_config
+                sys.modules[module_name] = original_config
 
     def test_variavel_obrigatoria_ausente_falha_sem_default(self) -> None:
         env = REQUIRED_ENV.copy()

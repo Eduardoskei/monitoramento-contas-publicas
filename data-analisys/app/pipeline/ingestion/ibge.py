@@ -1,8 +1,8 @@
 from typing import Any
 import time
 import requests
-from app.config import IBGE_LOCALIDADES_BASE_URL
-from app import database
+from app.core.config import IBGE_LOCALIDADES_BASE_URL
+from app.core import database
 from app.utils import banco_indisponivel as _ignorar_banco_indisponivel
 
 BASE_URL = IBGE_LOCALIDADES_BASE_URL

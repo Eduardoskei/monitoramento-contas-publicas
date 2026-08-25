@@ -1,6 +1,6 @@
 from typing import Any
 import pandas as pd
-from app.config import CODIGO_MUNICIPIO_TCE_PADRAO, MODALIDADE_ID_PADRAO, UF_PADRAO
+from app.core.config import CODIGO_MUNICIPIO_TCE_PADRAO, MODALIDADE_ID_PADRAO, UF_PADRAO
 from app.pipeline import cleaning, kpis, merge
 from app.pipeline.ingestion import fornecedores, ibge, pncp, tce
 

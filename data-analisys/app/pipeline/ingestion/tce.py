@@ -3,7 +3,7 @@ import time
 import json
 import requests
 
-from app.config import CODIGO_MUNICIPIO_TCE_PADRAO, TCE_CE_BASE_URL
+from app.core.config import CODIGO_MUNICIPIO_TCE_PADRAO, TCE_CE_BASE_URL
 from app.utils import normalizar_data
 
 BASE_URL = TCE_CE_BASE_URL
