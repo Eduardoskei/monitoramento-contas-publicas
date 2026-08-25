@@ -7,21 +7,8 @@ class ConfigError(RuntimeError):
     pass
 
 
-_DEFAULTS = {
-    "TCE_CE_BASE_URL": "https://api-dados-abertos.tce.ce.gov.br/sim",
-    "IBGE_LOCALIDADES_BASE_URL": "https://servicodados.ibge.gov.br/api/v1/localidades",
-    "PNCP_CONSULTA_BASE_URL": "https://pncp.gov.br/api/consulta",
-    "PNCP_GESTAO_BASE_URL": "https://pncp.gov.br/api/pncp",
-    "OPENCNPJ_BASE_URL": "https://kitana.opencnpj.com",
-    "UF_PADRAO": "CE",
-    "CODIGO_IBGE_PADRAO": "2304400",
-    "CODIGO_MUNICIPIO_TCE_PADRAO": "010",
-    "MODALIDADE_ID_PADRAO": "6",
-}
-
-
 def _env(key: str, *, strip_slash: bool = False) -> str:
-    value = os.getenv(key, _DEFAULTS.get(key))
+    value = os.getenv(key)
     if value is None or not value.strip():
         raise ConfigError(f"Variavel de ambiente obrigatoria ausente: {key}")
 
