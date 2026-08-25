@@ -2,14 +2,14 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from app.core import database
-from app.pipeline import analisys
-from app.pipeline.api.endpoints.health import health
-from app.pipeline.api.endpoints.pipeline import (
+from app.api.endpoints.health import health
+from app.api.endpoints.pipeline import (
     pncp_contratacoes,
     tce_contratos,
     tce_kpi_me_por_mes,
 )
-from app.pipeline.api.router import router
+from app.api.router import router
+from app.pipeline import analisys
 from app.utils import banco_indisponivel as _banco_opcional_indisponivel
 
 __all__ = [

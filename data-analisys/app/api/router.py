@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.pipeline.api.endpoints import health, pipeline
+from app.api.endpoints import health, pipeline
 
 router = APIRouter()
 
