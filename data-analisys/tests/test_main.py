@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 from pathlib import Path
 import sys
 import unittest
@@ -8,10 +9,34 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+os.environ.setdefault("TCE_CE_BASE_URL", "https://api-dados-abertos.tce.ce.gov.br/sim")
+os.environ.setdefault("IBGE_LOCALIDADES_BASE_URL", "https://servicodados.ibge.gov.br/api/v1/localidades")
+os.environ.setdefault("PNCP_CONSULTA_BASE_URL", "https://pncp.gov.br/api/consulta")
+os.environ.setdefault("PNCP_GESTAO_BASE_URL", "https://pncp.gov.br/api/pncp")
+os.environ.setdefault("OPENCNPJ_BASE_URL", "https://kitana.opencnpj.com")
+os.environ.setdefault("UF_PADRAO", "CE")
+os.environ.setdefault("CODIGO_IBGE_PADRAO", "2304400")
+os.environ.setdefault("CODIGO_MUNICIPIO_TCE_PADRAO", "010")
+os.environ.setdefault("MODALIDADE_ID_PADRAO", "6")
+
 from fastapi import HTTPException
 
 from app import main
 from app.pipeline.ingestion import pncp
+
+
+def _route_paths(routes) -> set[str]:
+    paths = set()
+    for route in routes:
+        path = getattr(route, "path", None)
+        if path is not None:
+            paths.add(path)
+
+        effective_route_contexts = getattr(route, "effective_route_contexts", None)
+        if callable(effective_route_contexts):
+            paths.update(context.path for context in effective_route_contexts())
+
+    return paths
 
 
 class MainTest(unittest.TestCase):
@@ -43,7 +68,7 @@ class MainTest(unittest.TestCase):
         asyncio.run(executar_lifespan())
 
     def test_rotas_do_pipeline_estao_registradas(self) -> None:
-        rotas = {route.path for route in main.app.routes}
+        rotas = _route_paths(main.app.routes)
 
         self.assertIn("/pipeline/pncp/contratacoes", rotas)
         self.assertIn("/pipeline/tce/contratos", rotas)
