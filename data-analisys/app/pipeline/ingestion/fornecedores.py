@@ -1,8 +1,8 @@
 from typing import Any, Iterable
 import time
 import requests
-from app.config import OPENCNPJ_BASE_URL
-from app import database
+from app.core.config import OPENCNPJ_BASE_URL
+from app.core import database
 from app.utils import (
     banco_indisponivel as _ignorar_banco_indisponivel,
     normalizar_texto as _normalizar_texto,

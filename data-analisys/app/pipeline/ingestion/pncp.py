@@ -3,7 +3,7 @@ from typing import Any
 import time
 import requests
 
-from app.config import PNCP_CONSULTA_BASE_URL, PNCP_GESTAO_BASE_URL
+from app.core.config import PNCP_CONSULTA_BASE_URL, PNCP_GESTAO_BASE_URL
 from app.utils import (
     filtrar_params_vazios,
     normalizar_data,
